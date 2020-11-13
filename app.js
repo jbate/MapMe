@@ -90,7 +90,10 @@ app.use('/src', express.static(path.join(__dirname, 'src')))
 
 app.use(express.json()); // to parse application/json
 
-const port = 3000;
+let port = process.env.PORT;
+if (!port) {
+  port = 3000;
+}
 app.listen(port, function() {
     console.log(`Listening on port ${port}`);
 });
