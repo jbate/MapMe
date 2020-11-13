@@ -2,7 +2,7 @@
   "name": "mapme",
   "version": "1.0.0",
   "description": "",
-  "main": "script.js",
+  "main": "app.js",
   "scripts": {
     "lint": "jshint ./src/js/*.js"
   },
