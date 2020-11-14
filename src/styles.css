@@ -25,10 +25,23 @@ h1 {
   margin: 0;
   line-height: 10vh;
   font-size: 5rem;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .progress {
   color: #e4002b;
+}
+
+@media only screen and (max-width: 812px) {
+  h1 {
+    line-height: 5vh;
+    font-size: 3rem;
+  }
+
+  .progress {
+    display: block;
+  }
 }
 
 [id="map-canvas"] {
