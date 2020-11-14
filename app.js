@@ -1,16 +1,32 @@
 require('dotenv').config();
-var path = require('path');
-require('https').globalAgent.options.rejectUnauthorized = false;
+const path = require('path');
+const https = require('https');
+https.globalAgent.options.rejectUnauthorized = false
 
-const errors = require('request-promise/errors')
+const allowCrossDomain = function(req, res, next) {
+  res.header('Access-Control-Allow-Origin', process.env.ACCESS_CONTROL_ALLOW_ORIGIN);
+  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With');
+
+  // intercept OPTIONS method
+  if ('OPTIONS' == req.method) {
+    res.send(200);
+  }
+  else {
+    next();
+  }
+};
+
+const errors = require('request-promise/errors');
 
 const passport = require('passport')
 const StravaStrategy = require('passport-strava-oauth2').Strategy
 
-var express = require("express");
+const express = require("express");
 const session = require('express-session');
 const app = express();
 
+app.use(allowCrossDomain);
 app.use(passport.initialize());
 app.use(passport.session());
 
@@ -81,7 +97,7 @@ passport.serializeUser((user, done) => done(null, user.id))
 passport.deserializeUser((id, done) => console.log('id', id));
 
 app.use(session({
-  secret: 'mapme',
+  secret: 'MapMe',
   resave: false,
   saveUninitialized: false
 }));
