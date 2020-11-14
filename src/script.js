@@ -82,6 +82,10 @@ function createAthleteMarker(latlng, label, icon) {
   return marker;
 }
 
+function getPercentageOfRouteCompleted() {
+  return Math.min(((config.athlete.totalDistance / 1000) / (config.route.distance / 1000) * 100).toFixed(2), 100);
+}
+
 // Route the directions and pass the response to a function to create markers
 function getDirectionsForRoute() {
   getDestinations.then(() => {
@@ -152,6 +156,7 @@ function updateAthleteLocation() {
   if (distance > config.route.distance) {
     config.map.panTo(config.route.end.latlng);
     config.athlete.marker.setPosition(config.route.end.latlng);
+    displayNearestLocality(config.route.end.latlng);
     return;
   }
 
@@ -161,6 +166,9 @@ function updateAthleteLocation() {
   // Update the map and marker
   config.map.panTo(positionOnRoute);
   config.athlete.marker.setPosition(positionOnRoute);
+
+  // Reverse geocode to try and get a place name
+  displayNearestLocality(positionOnRoute);
 
   updateAthleteDistanceLine();
 }
@@ -173,6 +181,58 @@ function updateAthleteDistanceLine() {
   config.athlete.line.setMap(config.map);
 }
 
+// Reverse geocode to try and get a place name from the location
+function displayNearestLocality(location) {
+  const geocoder = new google.maps.Geocoder();
+  geocoder.geocode({location}, results => displayNearestLocalityInHeader(getAthleteNearestLocality(results)));
+}
+
+// Try and get the nearest locality that matches the athlete's current location
+function getAthleteNearestLocality(geocodeResults) {
+  let nearestLocality = "";
+  let nearestCountry = "";
+
+  if (geocodeResults) {
+    // Try and get the locality information
+    let localityMatches = getReverseGeocodeResultForType(geocodeResults, 'locality');
+    if (!localityMatches.length) {
+      localityMatches = getReverseGeocodeResultForType(geocodeResults, 'postal_town');
+    }
+
+    if (localityMatches.length) {
+      nearestLocality = localityMatches[0].short_name;
+
+      // Also try and get the country name
+      const countryMatches = getReverseGeocodeResultForType(geocodeResults, 'country');
+
+      if (countryMatches.length) {
+        nearestCountry = countryMatches[0].short_name;
+      }
+    }
+  }
+  return {nearestLocality, nearestCountry}
+}
+
+function getReverseGeocodeResultForType(geocodeResults, type) {
+  return geocodeResults[0].address_components.filter(ac => ac.types.indexOf(type) > -1)
+}
+
+// Update the header with the locality info and the progress completed percentage
+function displayNearestLocalityInHeader({nearestLocality, nearestCountry}) {
+  const h1 = document.querySelector(".header h1");
+  if (nearestLocality) {
+    h1.innerText = nearestLocality;
+
+    if (nearestCountry) {
+      h1.innerText += ", " + nearestCountry;
+    }
+  }
+
+  const progress = document.createElement("span");
+  progress.classList.add("progress");
+  progress.innerText = getPercentageOfRouteCompleted() + "%" + (nearestLocality ? ": " : "");
+  h1.insertBefore(progress, h1.childNodes[0]);
+}
 
 // Extend the Google Maps API with some custom methods. Credit: http://jsfiddle.net/geocodezip/kzcm02d6/136/
 
