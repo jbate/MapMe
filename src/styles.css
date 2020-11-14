@@ -33,7 +33,7 @@ h1 {
   color: #e4002b;
 }
 
-@media only screen and (max-width: 812px) {
+@media only screen and (max-width: 1024px) {
   h1 {
     line-height: 5vh;
     font-size: 3rem;

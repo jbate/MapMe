@@ -1,3 +1,4 @@
+const apiURL = location.hostname === "localhost" ? "" : "http://mapme-run.herokuapp.com/";
 const config = {
   startAddress: "",
   endAddress: "",
@@ -27,12 +28,12 @@ const config = {
 
 google.maps.event.addDomListener(window, "load", initialize);
 
-const getDestinations = fetch('/get-destinations').then(res => res.json()).then(res => {
+const getDestinations = fetch(apiURL + '/get-destinations').then(res => res.json()).then(res => {
   config.startAddress = res.startAddress;
   config.endAddress = res.endAddress;
 });
 
-const getMapsId = fetch('/get-maps-id');
+const getMapsId = fetch(apiURL + '/get-maps-id');
 
 function initialize() {
   getMapsId.then(res => res.json()).then(mapResponse => {
@@ -139,7 +140,7 @@ function plotRouteOnMap(response, status) {
 
 // Get athlete details from the server
 function getAthleteDetails() {
-  fetch('/user').then(res => res.json()).then(res => {
+  fetch(apiURL + '/user').then(res => res.json()).then(res => {
     config.athlete.name = res.user.displayName;
     config.athlete.icon = res.user._json.profile_medium;
     config.athlete.totalDistance = res.user.ytd_run_totals.distance;
