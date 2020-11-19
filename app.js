@@ -30,10 +30,20 @@ app.use(allowCrossDomain);
 app.use(passport.initialize());
 app.use(passport.session());
 
-const strava = require('strava-v3');
+app.use(session({
+  genid: (req) => {
+    return '_' + Math.random().toString(36).substr(2, 9)
+  },
+  cookie: {
+    maxAge: 24 * 60 * 60 * 365 * 1000
+  },
+  name: '_MapMe',
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: true
+}));
 
-let access_token = '';
-let user = {};
+const strava = require('strava-v3');
 
 const stravaConfig = {
   clientID: process.env.STRAVA_CLIENT_ID,
@@ -42,8 +52,7 @@ const stravaConfig = {
 }
 
 const strategy = new StravaStrategy(stravaConfig, (accessToken, refreshToken, profile, done) => {
-  user = profile;
-  access_token = accessToken;
+  const user = {...profile, accessToken, refreshToken};
   done(false, user);
 });
 
@@ -56,32 +65,34 @@ app.get('/callback', passport.authenticate('strava', {
 );
 
 app.get('/', (req, res) => {
-  if (!access_token) {
+
+  if (!req.session || !req.session.passport || !req.session.passport.user) {
     return res.redirect('/auth');
   }
   res.sendFile(path.join(__dirname + '/index.html'));
 });
 
 app.get('/user', async(req, res) => {
-  if (!access_token) {
+  if (!req.session || !req.session.passport || !req.session.passport.user) {
     return res.redirect('/auth');
   }
 
   strava.config({
-    access_token: access_token,
+    access_token: req.session.passport.user.accessToken,
     client_id: process.env.STRAVA_CLIENT_ID,
     client_secret: process.env.STRAVA_CLIENT_SECRET,
     redirect_uri: process.env.STRAVA_CLIENT_CALLBACK,
   });
 
-  const result = await strava.athletes.stats({id: user.id, access_token}).catch(errors.StatusCodeError, (e) => {
+  const result = await strava.athletes.stats({id: req.session.passport.user.id, access_token: req.session.passport.user.accessToken}).catch(errors.StatusCodeError, (e) => {
     if (e === 401) {
       return res.redirect('/auth');
     }
   });
 
   if (result) {
-    res.json({user: {...user, ...result}});
+    const response = {...req.session.passport.user, ...result};
+    res.json({user: response});
   } else {
     res.json({error: "Could not retrieve user"});
   }
@@ -93,14 +104,8 @@ app.get('/get-maps-id', (req, res) => res.json({id: process.env.GOOGLE_MAPS_ID})
 
 app.get('/error', (req, res) => res.send('LOGIN'));
 
-passport.serializeUser((user, done) => done(null, user.id))
-passport.deserializeUser((id, done) => console.log('id', id));
-
-app.use(session({
-  secret: 'MapMe',
-  resave: false,
-  saveUninitialized: false
-}));
+passport.serializeUser((user, done) => done(null, user))
+passport.deserializeUser((id, done) => done(null, id));
 
 app.use('/src', express.static(path.join(__dirname, 'src')))
 
