@@ -64,19 +64,19 @@ function initialize() {
 }
 
 // Create the marker and attach a click handler
-function createAthleteMarker(latlng, label, icon) {
+function createAthleteMarker() {
   const marker = new google.maps.Marker({
-    position: latlng,
+    position: config.route.start.latlng,
     map: config.map,
-    title: label,
-    icon,
-    zIndex: Math.round(latlng.lat() * -100000)<<5
+    title: config.athlete.name,
+    icon: config.athlete.icon,
+    zIndex: Math.round(config.route.start.latlng.lat() * -100000)<<5
   });
 
   google.maps.event.addListener(marker, 'click', function() {
     const athleteDistance = parseFloat((config.athlete.totalDistance / 1000).toFixed(2), 10).toLocaleString();
     const routeDistance = parseFloat((config.route.distance / 1000).toFixed(2), 10).toLocaleString();
-    config.infoWindow.setContent(`<b>${label}</b><br>My distance run: ${athleteDistance} km<br>Total route distance: ${routeDistance} km`);
+    config.infoWindow.setContent(`<b>${config.athlete.name}</b><br>My distance run: ${athleteDistance} km<br>Total route distance: ${routeDistance} km`);
     config.infoWindow.open(config.map, marker);
   });
 
@@ -108,11 +108,10 @@ function plotRouteOnMap(response, status) {
     const legs = response.routes[0].legs;
 
     for (let i = 0; i < legs.length; i++) {
-      // On the first leg (there might only be one) create the athlete marker
+      // On the first leg (there might only be one) set the start locations
       if (i == 0) {
         config.route.start.latlng = legs[i].start_location;
         config.route.start.address = legs[i].start_address;
-        config.athlete.marker = createAthleteMarker(config.route.start.latlng, config.athlete.name, config.athlete.icon);
       }
 
       // Store the end location
@@ -151,6 +150,11 @@ function getAthleteDetails() {
 
 function updateAthleteLocation() {
   const distance = config.athlete.totalDistance;
+
+  // Create the marker if it doesn't exist
+  if (!config.athlete.marker) {
+    config.athlete.marker = createAthleteMarker();
+  }
 
   // If the total distance has exceeded the route, set the map to the end location
   config.route.distance = google.maps.geometry.spherical.computeLength(config.route.line.getPath());
