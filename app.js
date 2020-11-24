@@ -26,18 +26,15 @@ const express = require("express");
 const session = require('express-session');
 const app = express();
 
+const {MongoClient} = require("mongodb");
+const dbConn = MongoClient.connect(process.env.DATABASE_URL)
+const dbName = "MapMeDatabase";
+
 app.use(allowCrossDomain);
 app.use(passport.initialize());
 app.use(passport.session());
 
 app.use(session({
-  genid: (req) => {
-    return '_' + Math.random().toString(36).substr(2, 9)
-  },
-  cookie: {
-    maxAge: 24 * 60 * 60 * 365 * 1000
-  },
-  name: '_MapMe',
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: true
@@ -52,51 +49,135 @@ const stravaConfig = {
 }
 
 const strategy = new StravaStrategy(stravaConfig, (accessToken, refreshToken, profile, done) => {
-  const user = {...profile, accessToken, refreshToken};
+  const user = {
+    id: profile.id,
+    username: profile.displayName,
+    family_name: profile.name.familyName,
+    given_name: profile.name.givenName,
+    profile_picture: profile._json.profile_medium,
+    refresh_token: refreshToken,
+    date_created: Date.now(),
+    ytd_run_totals: 0
+  };
+
+  const dbUser = findUser(user.id);
+
+  // If user isn't in the database already, add the new user to the database and generate some stats
+  if (!dbUser) {
+    addUser(user).then(newUser => getAthleteStats(newUser)).catch(console.dir);
+  }
   done(false, user);
 });
 
+
+// Database operations
+async function addUser(user) {
+  try {
+    return await dbConn.then(client => client.db(dbName).collection("users").insertOne(user));
+  } catch (err) {
+    console.log("Add user error", err.stack);
+  }
+}
+
+async function updateUserTotal(userId, distance) {
+  try {
+    const filter = {id: userId};
+    const update = {
+      $set: {
+        ytd_run_totals: distance,
+        last_updated: Date.now()
+      }
+    };
+    dbConn.then(client => client.db(dbName).collection("users").updateOne(filter, update));
+  } catch (err) {
+    console.log("Update user error", err.stack);
+  }
+}
+
+async function findUser(userId) {
+  try {
+    return await dbConn.then(async client => {
+      return await client.db(dbName).collection("users").findOne({
+        id: userId,
+        last_updated: {$gte: Date.now() - 60000} // last 60 seconds
+      });
+    });
+
+  } catch (err) {
+    console.log("Find user error", err.stack);
+  }
+}
+
+async function findUsers() {
+  try {
+    return await dbConn.then(async client => {
+      const userTable = client.db(dbName).collection("users");
+      
+      // Find all users, sort by ytd_run_totals asc
+      return await userTable.find({}).sort({ytd_run_totals: 1});
+    });
+
+  } catch (err) {
+    console.log("Find users error", err.stack);
+  }
+}
+
 passport.use(strategy);
-app.get('/auth', passport.authenticate('strava', {scope:['read']}));
+app.get('/add-user', passport.authenticate('strava', {scope:['read']}));
 app.get('/callback', passport.authenticate('strava', {
     successRedirect: '/',
     failureRedirect: '/error'
   })
 );
 
-app.get('/', (req, res) => {
+app.get('/', (req, res) => res.redirect(process.env.AUTH_SUCCESS_REDIRECT));
 
-  if (!req.session || !req.session.passport || !req.session.passport.user) {
-    return res.redirect('/auth');
-  }
-  res.sendFile(path.join(__dirname + '/index.html'));
+app.get('/get-user-totals', async(req, res) => {
+  const users = await findUsers();
+  let response = [];
+
+  users.toArray().then(usersArray => {
+    usersArray.forEach((u, idx) => {
+        getAthleteStats(u).then(r => {
+          response.push(r);
+
+          if (idx === usersArray.length -1) {
+            res.json(response);
+          }
+        });
+      });
+  });
 });
 
-app.get('/user', async(req, res) => {
-  if (!req.session || !req.session.passport || !req.session.passport.user) {
-    return res.redirect('/auth');
-  }
-
-  strava.config({
-    access_token: req.session.passport.user.accessToken,
-    client_id: process.env.STRAVA_CLIENT_ID,
-    client_secret: process.env.STRAVA_CLIENT_SECRET,
-    redirect_uri: process.env.STRAVA_CLIENT_CALLBACK,
-  });
-
-  const result = await strava.athletes.stats({id: req.session.passport.user.id, access_token: req.session.passport.user.accessToken}).catch(errors.StatusCodeError, (e) => {
-    if (e === 401) {
-      return res.redirect('/auth');
-    }
-  });
-
-  if (result) {
-    const response = {...req.session.passport.user, ...result};
-    res.json({user: response});
+async function getAthleteStats(user) {
+  // Try and find a recent result for this user in the database
+  const userFromDb = await findUser(user.id);
+  if (userFromDb) {
+    return userFromDb;
   } else {
-    res.json({error: "Could not retrieve user"});
+    // Else query the Strava API
+    strava.config({
+      access_token: user.access_token,
+      client_id: process.env.STRAVA_CLIENT_ID,
+      client_secret: process.env.STRAVA_CLIENT_SECRET,
+      redirect_uri: process.env.STRAVA_CLIENT_CALLBACK,
+    });
+    const newTokenDetails = await strava.oauth.refreshToken(user.refresh_token);
+    const result = await strava.athletes.stats({id: user.id, access_token: newTokenDetails.access_token}).catch(errors.StatusCodeError, (e) => {
+      if (e === 401) {
+        // TODO handle error
+      }
+    });
+
+    if (result) {
+      // Update the database with this latest result
+      await updateUserTotal(user.id, result.ytd_run_totals.distance);
+      return {...user, ...result, ytd_run_totals: result.ytd_run_totals.distance};
+    } else {
+      return {error: "Could not retrieve user"};
+    }
   }
-});
+}
 
 app.get('/get-destinations', (req, res) => res.json({startAddress: process.env.START, endAddress: process.env.END}));
 
