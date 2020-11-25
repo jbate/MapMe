@@ -60,7 +60,10 @@ const strategy = new StravaStrategy(stravaConfig, (accessToken, refreshToken, pr
     ytd_run_totals: 0
   };
 
-  const dbUser = findUser(user.id);
+  console.log('Strava authenticated: name', profile.displayName);
+
+  const dbUser = await findUser(user.id);
+  console.log('Strava authenticated: dbUser', dbUser);
 
   // If user isn't in the database already, add the new user to the database and generate some stats
   if (!dbUser) {
@@ -73,6 +76,7 @@ const strategy = new StravaStrategy(stravaConfig, (accessToken, refreshToken, pr
 // Database operations
 async function addUser(user) {
   try {
+    console.log('Adding user to db', user);
     return await dbConn.then(client => client.db(dbName).collection("users").insertOne(user));
   } catch (err) {
     console.log("Add user error", err.stack);
