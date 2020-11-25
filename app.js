@@ -48,7 +48,7 @@ const stravaConfig = {
   callbackURL: process.env.STRAVA_CLIENT_CALLBACK_ENDPOINT
 }
 
-const strategy = new StravaStrategy(stravaConfig, (accessToken, refreshToken, profile, done) => {
+const strategy = new StravaStrategy(stravaConfig, async (accessToken, refreshToken, profile, done) => {
   const user = {
     id: profile.id,
     username: profile.displayName,
