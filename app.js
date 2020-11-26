@@ -134,31 +134,19 @@ app.get('/get-user-totals', async(req, res) => {
   if (users) {
     users.toArray().then(usersArray => {
       usersArray.forEach(u => {
-        refreshAthleteStats(u).then(result => {
-          if (result) {
-            response.push(result);
-          }
+        // If the record in the database is potentially stale (over 60 seconds old)
+        if (!u.last_updated || u.last_updated < Date.now() - 60000) {
+          getStatsFromStrava(u);
+        }
 
-          // Use promise and resolve when finished instead of this...
-          if (response.length === usersArray.length) {
-            res.json(response);
-          }
-        });
+        response.push(u);
       });
+      res.json(response);
     });
   } else {
     res.json(response);
   }
 });
-
-async function refreshAthleteStats(user) {
-  // If the record in the database is potentially stale (over 60 seconds old)
-  if (!user.last_updated || user.last_updated < Date.now() - 60000) {
-    getStatsFromStrava(user);
-  }
-
-  return user;
-}
 
 async function getStatsFromStrava(user) {
   // Query the Strava API for a fresh record
