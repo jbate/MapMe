@@ -186,7 +186,7 @@ function updateAthleteLocations() {
 
           // Reverse geocode to try and get a place name
           // Update header with nearest locations
-          getNearestLocality(config.route.end.latlng).then(() => displayAthleteHeaderTimer(athlete, index));
+          getNearestLocality(config.route.end.latlng).then(() => displayNearestLocalityInHeader(athlete));
           return;
         }
 
@@ -200,7 +200,7 @@ function updateAthleteLocations() {
 
         // Reverse geocode to try and get a place name
         // Update header with nearest locations
-        getNearestLocality(athlete, positionOnRoute).then(() => displayAthleteHeaderTimer(athlete, index));
+        getNearestLocality(athlete, positionOnRoute).then(() => displayNearestLocalityInHeader(athlete));
 
         updateAthleteDistanceLine(athlete);
       }
@@ -250,17 +250,6 @@ function reverseGeoCodeLookups(athlete, geocodeResults) {
 
 function getReverseGeocodeResultForType(geocodeResults, type) {
   return geocodeResults[0].address_components.filter(ac => ac.types.indexOf(type) > -1)
-}
-
-function displayAthleteHeaderTimer(athlete, athleteCount) {
-  // If there are multiple athletes create a timer to rotate through them
-  if (athleteCount > 1) {
-    athlete.displayInterval = setInterval(function() {
-      displayNearestLocalityInHeader(athlete);
-    }, (athleteCount + 1) * 5000);
-  } else {
-    displayNearestLocalityInHeader(athlete);
-  }
 }
 
 // Update the header with the locality info and the progress completed percentage
