@@ -23,7 +23,6 @@ const passport = require('passport')
 const StravaStrategy = require('passport-strava-oauth2').Strategy
 
 const express = require("express");
-const session = require('express-session');
 const app = express();
 
 const {MongoClient} = require("mongodb");
@@ -33,12 +32,6 @@ const dbName = "MapMeDatabase";
 app.use(allowCrossDomain);
 app.use(passport.initialize());
 app.use(passport.session());
-
-app.use(session({
-  secret: process.env.SESSION_SECRET,
-  resave: false,
-  saveUninitialized: true
-}));
 
 const strava = require('strava-v3');
 
@@ -60,16 +53,14 @@ const strategy = new StravaStrategy(stravaConfig, async (accessToken, refreshTok
     ytd_run_totals: 0
   };
 
-  console.log('Strava authenticated: name', profile.displayName);
-
   const dbUser = await findUser(user.id);
-  console.log('Strava authenticated: dbUser', dbUser);
 
   // If user isn't in the database already, add the new user to the database and generate some stats
   if (!dbUser) {
-    addUser(user).then(newUser => getAthleteStats(newUser)).catch(console.dir);
+    addUser(user).then(() => getStatsFromStrava(user)).then(() => done(false, user)).catch(console.dir);
+  } else {
+    done(false, user);
   }
-  done(false, user);
 });
 
 
@@ -102,8 +93,7 @@ async function findUser(userId) {
   try {
     return await dbConn.then(async client => {
       return await client.db(dbName).collection("users").findOne({
-        id: userId,
-        last_updated: {$gte: Date.now() - 60000} // last 60 seconds
+        id: userId
       });
     });
 
@@ -123,6 +113,7 @@ async function findUsers() {
 
   } catch (err) {
     console.log("Find users error", err.stack);
+    return null;
   }
 }
 
@@ -140,46 +131,57 @@ app.get('/get-user-totals', async(req, res) => {
   const users = await findUsers();
   let response = [];
 
-  users.toArray().then(usersArray => {
-    usersArray.forEach((u, idx) => {
-        getAthleteStats(u).then(r => {
-          response.push(r);
+  if (users) {
+    users.toArray().then(usersArray => {
+      usersArray.forEach(u => {
+        refreshAthleteStats(u).then(result => {
+          if (result) {
+            response.push(result);
+          }
 
-          if (idx === usersArray.length -1) {
+          // Use promise and resolve when finished instead of this...
+          if (response.length === usersArray.length) {
             res.json(response);
           }
         });
       });
-  });
+    });
+  } else {
+    res.json(response);
+  }
 });
 
-async function getAthleteStats(user) {
-  // Try and find a recent result for this user in the database
-  const userFromDb = await findUser(user.id);
-  if (userFromDb) {
-    return userFromDb;
-  } else {
-    // Else query the Strava API
-    strava.config({
-      access_token: user.access_token,
-      client_id: process.env.STRAVA_CLIENT_ID,
-      client_secret: process.env.STRAVA_CLIENT_SECRET,
-      redirect_uri: process.env.STRAVA_CLIENT_CALLBACK,
-    });
-    const newTokenDetails = await strava.oauth.refreshToken(user.refresh_token);
-    const result = await strava.athletes.stats({id: user.id, access_token: newTokenDetails.access_token}).catch(errors.StatusCodeError, (e) => {
-      if (e === 401) {
-        // TODO handle error
-      }
-    });
+async function refreshAthleteStats(user) {
+  // If the record in the database is potentially stale (over 60 seconds old)
+  if (!user.last_updated || user.last_updated < Date.now() - 60000) {
+    getStatsFromStrava(user);
+  }
 
-    if (result) {
-      // Update the database with this latest result
-      await updateUserTotal(user.id, result.ytd_run_totals.distance);
-      return {...user, ...result, ytd_run_totals: result.ytd_run_totals.distance};
-    } else {
-      return {error: "Could not retrieve user"};
+  return user;
+}
+
+async function getStatsFromStrava(user) {
+  // Query the Strava API for a fresh record
+  strava.config({
+    client_id: process.env.STRAVA_CLIENT_ID,
+    client_secret: process.env.STRAVA_CLIENT_SECRET,
+    redirect_uri: process.env.STRAVA_CLIENT_CALLBACK,
+  });
+  const newTokenDetails = await strava.oauth.refreshToken(user.refresh_token);
+  const result = await strava.athletes.stats({id: user.id, access_token: newTokenDetails.access_token}).catch(errors.StatusCodeError, (e) => {
+    if (e === 401) {
+      // TODO handle error
+      console.log('Strava error getting stats for', user);
     }
+  });
+
+  if (result) {
+    // Update the database with this latest result
+    updateUserTotal(user.id, result.ytd_run_totals.distance);
+    return {...user, ...result, ytd_run_totals: result.ytd_run_totals.distance};
+  } else {
+    console.log('Error could not retrieve user', user);
+    return null;
   }
 }
 
@@ -187,7 +189,7 @@ app.get('/get-destinations', (req, res) => res.json({startAddress: process.env.S
 
 app.get('/get-maps-id', (req, res) => res.json({id: process.env.GOOGLE_MAPS_ID}));
 
-app.get('/error', (req, res) => res.send('LOGIN'));
+app.get('/error', (req, res) => res.send('LOGIN ERROR'));
 
 passport.serializeUser((user, done) => done(null, user))
 passport.deserializeUser((id, done) => done(null, id));
