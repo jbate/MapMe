@@ -17,7 +17,6 @@ header {
   background-color: aliceblue;
   border-bottom: 3px solid green;
   display: flex;
-  position: relative;
   flex: 1 0 100%;
   align-items: center;
   overflow: hidden;
@@ -58,13 +57,6 @@ header {
 .athlete-name {
   color: #333;
 }
-
-@media only screen and (max-width: 1024px) {
-  .nearest {
-    display: block;
-  }
-}
-
 
 header aside {
   align-items: center;
@@ -143,5 +135,29 @@ img[src*='pictures/athletes'] {
   50%, 100% {
     top: 24px;
     height: 32px;
+  }
+}
+
+@media only screen and (max-width: 1024px) {
+  .nearest {
+    display: block;
+  }
+
+  header aside {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: 90vh;
+    z-index: 1;
+    height: auto;
+    justify-content: center;
+    border-left: 0;
+    border-top: 2px solid #ccc;
+  }
+
+  .auth-button {
+    margin-left: initial;
+    font-size: 3rem;
   }
 }
