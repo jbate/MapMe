@@ -23,15 +23,32 @@ header {
   overflow: hidden;
 }
 
-h1 {
+.athlete-leaderboard {
+  overflow: auto;
+  height: 100%;
+  margin: 0;
+  flex-grow: 1;
+  direction: rtl;
+}
+
+.athlete-leaderboard .athlete-score {
+  list-style: none;
+  text-align: left;
+  direction: ltr;
   font-family: DayPosterBlack, 'Helvetica Neue', Helvetica, Arial, sans-serif;
   color: green;
   text-transform: uppercase;
   margin: 0 20px;
-  line-height: 10vh;
-  font-size: 5rem;
+  padding: 5px;
+  line-height: 4rem;
+  font-size: 3rem;
   white-space: nowrap;
   overflow: hidden;
+  border-bottom: 1px solid green;
+}
+
+.athlete-leaderboard .athlete-score:last-child {
+  border-bottom: none;
 }
 
 .progress {
@@ -42,18 +59,7 @@ h1 {
   color: #333;
 }
 
-@media only screen and (min-width: 1025px) {
-  .athlete-name {
-    display: block;
-  }
-}
-
 @media only screen and (max-width: 1024px) {
-  h1 {
-    line-height: 5vh;
-    font-size: 3rem;
-  }
-
   .nearest {
     display: block;
   }
@@ -61,12 +67,9 @@ h1 {
 
 
 header aside {
-  position: absolute;
   align-items: center;
   display: flex;
-  right: 0;
-  top: 0;
-  bottom: 0;
+  height: 100%;
   padding: 20px;
   border-left: 2px solid #ccc;
   box-shadow: -1px 0px 10px 1px #aaa;

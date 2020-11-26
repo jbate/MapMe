@@ -264,20 +264,33 @@ function displayAthleteHeaderTimer(athlete, athleteCount) {
 
 // Update the header with the locality info and the progress completed percentage
 function displayNearestLocalityInHeader(athlete) {
+  const li = document.createElement("li");
+  li.classList.add("athlete-score");
+  document.querySelector(".athlete-leaderboard").appendChild(li);
+
+  // Create an element for the athlete's name
+  const nameBadge = document.createElement("span");
+  nameBadge.classList.add("athlete-name");
+  nameBadge.innerText = athlete.username + " ";
+  li.appendChild(nameBadge);
+
+  // Create an element for their progress
+  const progress = document.createElement("span");
+  progress.classList.add("progress");
+  progress.innerText = getPercentageOfRouteCompleted(athlete.ytd_run_totals) + "%" + (athlete.nearestLocalityInfo && athlete.nearestLocalityInfo.nearestLocality ? ": " : "");
+  li.appendChild(progress);
+
+  // Create an element for the "nearest" info
   if (athlete.nearestLocalityInfo) {
-    const nearest = document.querySelector("header .nearest");
+    const nearest = document.createElement("span");
+    nearest.classList.add("nearest");
     nearest.innerText = athlete.nearestLocalityInfo.nearestLocality;
 
     if (athlete.nearestLocalityInfo.nearestCountry) {
       nearest.innerText += ", " + athlete.nearestLocalityInfo.nearestCountry;
     }
+    li.appendChild(nearest);
   }
-
-  const nameBadge = document.querySelector("header .athlete-name");
-  nameBadge.innerText = athlete.username + " ";
-
-  const progress = document.querySelector("header .progress");
-  progress.innerText = getPercentageOfRouteCompleted(athlete.ytd_run_totals) + "%" + (athlete.nearestLocalityInfo && athlete.nearestLocalityInfo.nearestLocality ? ": " : "");
 }
 
 // Extend the Google Maps API with some custom methods. Credit: http://jsfiddle.net/geocodezip/kzcm02d6/136/
