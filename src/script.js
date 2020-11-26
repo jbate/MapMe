@@ -32,8 +32,6 @@ const getDestinations = fetch(apiURL + '/get-destinations').then(res => res.json
 const getMapsId = fetch(apiURL + '/get-maps-id');
 
 function initialize() {
-  document.querySelector(".loading-spinner").remove();
-
   getMapsId.then(res => res.json()).then(mapResponse => {
     // Create a map
     const myOptions = {
@@ -122,6 +120,9 @@ function getDirectionsForRoute() {
 
 function plotRouteOnMap(response, status) {
   if (status == google.maps.DirectionsStatus.OK) {
+    // Remove the loading spinner
+    document.querySelector(".loading-spinner").remove();
+
     config.directionsDisplay.setDirections(response);
     const bounds = new google.maps.LatLngBounds();
     const legs = response.routes[0].legs;
