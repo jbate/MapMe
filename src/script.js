@@ -32,6 +32,8 @@ const getDestinations = fetch(apiURL + '/get-destinations').then(res => res.json
 const getMapsId = fetch(apiURL + '/get-maps-id');
 
 function initialize() {
+  document.querySelector(".loading-spinner").remove();
+
   getMapsId.then(res => res.json()).then(mapResponse => {
     // Create a map
     const myOptions = {
@@ -63,7 +65,7 @@ function initialize() {
 function createAthleteMarker(athlete) {
   return new Promise(resolve => {
     checkUrlExists(athlete.profile_picture).then(imageExists => {
-      const icon = imageExists ? {url: athlete.profile_picture, scaledSize: new google.maps.Size(60, 60)} : undefined;
+      const icon = imageExists ? {url: athlete.profile_picture, size: new google.maps.Size(60, 60), scaledSize: new google.maps.Size(60, 60)} : undefined;
 
       const marker = new google.maps.Marker({
         position: config.route.start.latlng,
