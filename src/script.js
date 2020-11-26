@@ -63,7 +63,7 @@ function initialize() {
 function createAthleteMarker(athlete) {
   return new Promise(resolve => {
     checkUrlExists(athlete.profile_picture).then(imageExists => {
-      const icon = imageExists ? {url: athlete.profile_picture, size: new google.maps.Size(60, 60)} : undefined;
+      const icon = imageExists ? {url: athlete.profile_picture, scaledSize: new google.maps.Size(60, 60)} : undefined;
 
       const marker = new google.maps.Marker({
         position: config.route.start.latlng,
@@ -78,11 +78,12 @@ function createAthleteMarker(athlete) {
         const athleteDistance = parseFloat((athlete.ytd_run_totals / 1000).toFixed(2), 10).toLocaleString();
         const routeDistance = parseFloat((config.route.distance / 1000).toFixed(2), 10).toLocaleString();
         config.infoWindow.setContent(`
-          <b>${athlete.username}</b><br>
-          Distance run: ${athleteDistance} km<br>
-          Total route distance: ${routeDistance} km<br>
-          <b class="progress">${getPercentageOfRouteCompleted(athlete.ytd_run_totals) + "%</b> " + (athlete.nearestLocalityInfo ? athlete.nearestLocalityInfo.nearestLocality + (athlete.nearestLocalityInfo.nearestCountry ? ", " + athlete.nearestLocalityInfo.nearestCountry : "") : "")}
-          `);
+          <div class='marker-popup'>
+            <b>${athlete.username}</b><br>
+            Distance run: ${athleteDistance} km<br>
+            Total route distance: ${routeDistance} km<br>
+            <b class="progress">${getPercentageOfRouteCompleted(athlete.ytd_run_totals) + "%</b> " + (athlete.nearestLocalityInfo ? athlete.nearestLocalityInfo.nearestLocality + (athlete.nearestLocalityInfo.nearestCountry ? ", " + athlete.nearestLocalityInfo.nearestCountry : "") : "")}
+          </div>`);
         config.infoWindow.open(config.map, marker);
       });
       resolve(marker);

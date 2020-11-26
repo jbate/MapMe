@@ -100,3 +100,7 @@ header aside {
 img[src*='pictures/athletes'] {
   border-radius: 50%;
 }
+
+.marker-popup {
+  font-size: 16px;
+}
