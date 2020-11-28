@@ -181,7 +181,7 @@ function updateAthleteLocations() {
         config.route.distance = google.maps.geometry.spherical.computeLength(config.route.line.getPath());
         if (distance > config.route.distance) {
           config.map.panTo(config.route.end.latlng);
-          config.map.setZoom(15);
+          config.map.setZoom(8);
           createMarker.then(marker => marker.setPosition(config.route.end.latlng));
 
           // Reverse geocode to try and get a place name
@@ -195,7 +195,7 @@ function updateAthleteLocations() {
 
         // Update the map and marker
         config.map.panTo(positionOnRoute);
-        config.map.setZoom(8);
+        config.map.setZoom(6);
         createMarker.then(marker => marker.setPosition(positionOnRoute));
 
         // Reverse geocode to try and get a place name
@@ -236,13 +236,14 @@ function reverseGeoCodeLookups(athlete, geocodeResults) {
 
     if (localityMatches.length) {
       nearestLocality = localityMatches[0].short_name;
+    }
 
-      // Also try and get the country name
-      const countryMatches = getReverseGeocodeResultForType(geocodeResults, 'country');
+    // Also try and get the country name
+    const countryMatches = getReverseGeocodeResultForType(geocodeResults, 'country');
 
-      if (countryMatches.length) {
-        nearestCountry = countryMatches[0].short_name;
-      }
+    if (countryMatches.length) {
+      // If the locality exists, just return the country short name
+      nearestCountry = nearestLocality ? countryMatches[0].short_name : countryMatches[0].long_name;
     }
   }
   athlete.nearestLocalityInfo = {nearestLocality, nearestCountry};
@@ -267,7 +268,7 @@ function displayNearestLocalityInHeader(athlete) {
   // Create an element for their progress
   const progress = document.createElement("span");
   progress.classList.add("progress");
-  progress.innerText = getPercentageOfRouteCompleted(athlete.ytd_run_totals) + "%" + (athlete.nearestLocalityInfo && athlete.nearestLocalityInfo.nearestLocality ? ": " : "");
+  progress.innerText = getPercentageOfRouteCompleted(athlete.ytd_run_totals) + "% ";
   li.appendChild(progress);
 
   // Create an element for the "nearest" info
@@ -276,9 +277,10 @@ function displayNearestLocalityInHeader(athlete) {
     nearest.classList.add("nearest");
     nearest.innerText = athlete.nearestLocalityInfo.nearestLocality;
 
-    if (athlete.nearestLocalityInfo.nearestCountry) {
-      nearest.innerText += ", " + athlete.nearestLocalityInfo.nearestCountry;
+    if (athlete.nearestLocalityInfo.nearestLocality && athlete.nearestLocalityInfo.nearestCountry) {
+      nearest.innerText += ", ";
     }
+    nearest.innerText += athlete.nearestLocalityInfo.nearestCountry;
     li.appendChild(nearest);
   }
 }

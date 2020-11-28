@@ -97,7 +97,7 @@ img[src*='pictures/athletes'] {
 }
 
 .marker-popup {
-  font-size: 16px;
+  font-size: 1.5rem;
 }
 
 .loading-spinner {
