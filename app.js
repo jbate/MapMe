@@ -108,7 +108,7 @@ async function findUsers() {
       const userTable = client.db(dbName).collection("users");
       
       // Find all users, sort by ytd_run_totals asc
-      return await userTable.find({}).sort({ytd_run_totals: 1});
+      return await userTable.find({}).sort({ytd_run_totals: -1});
     });
 
   } catch (err) {
