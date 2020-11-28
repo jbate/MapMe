@@ -186,7 +186,7 @@ function updateAthleteLocations() {
 
           // Reverse geocode to try and get a place name
           // Update header with nearest locations
-          getNearestLocality(config.route.end.latlng).then(() => displayNearestLocalityInHeader(athlete));
+          getNearestLocality(athlete, config.route.end.latlng).then(() => displayNearestLocalityInHeader(athlete));
           return;
         }
 
