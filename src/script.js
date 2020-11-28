@@ -35,7 +35,7 @@ function initialize() {
   getMapsId.then(res => res.json()).then(mapResponse => {
     // Create a map
     const myOptions = {
-      zoom: 15,
+      zoom: 10,
       mapTypeId: google.maps.MapTypeId.ROADMAP,
       mapId: mapResponse.id
     }
@@ -177,25 +177,15 @@ function updateAthleteLocations() {
         // Create a marker for this athlete
         const createMarker = createAthleteMarker(athlete);
 
-        // If the total distance has exceeded the route, set the map to the end location
+        // Calculate the length of the route
         config.route.distance = google.maps.geometry.spherical.computeLength(config.route.line.getPath());
-        if (distance > config.route.distance) {
-          config.map.panTo(config.route.end.latlng);
-          config.map.setZoom(8);
-          createMarker.then(marker => marker.setPosition(config.route.end.latlng));
 
-          // Reverse geocode to try and get a place name
-          // Update header with nearest locations
-          getNearestLocality(athlete, config.route.end.latlng).then(() => displayNearestLocalityInHeader(athlete));
-          return;
-        }
-
-        // Get the distance on the route line
-        const positionOnRoute = config.route.line.GetPointAtDistance(distance);
+        // Get the distance on the route line. Use the route end if completed or exceeded
+        const positionOnRoute = distance >= config.route.distance ? config.route.end.latlng : config.route.line.GetPointAtDistance(distance);
 
         // Update the map and marker
         config.map.panTo(positionOnRoute);
-        config.map.setZoom(6);
+        config.map.setZoom(8);
         createMarker.then(marker => marker.setPosition(positionOnRoute));
 
         // Reverse geocode to try and get a place name
