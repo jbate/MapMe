@@ -52,10 +52,10 @@ function initialize() {
     config.directionsDisplay = new google.maps.DirectionsRenderer({map: config.map});
 
     // Draw the lines and get the directions
-    getDirectionsForRoute();
+    const getDirections = getDirectionsForRoute();
 
     // Draw where the athletes are along the route based on their progress
-    getAthletesDetails();
+    getDirections.then(() => getAthletesDetails()).catch(e => console.log(e));
   });
 }
 
@@ -74,21 +74,43 @@ function createAthleteMarker(athlete) {
       });
       athlete.marker = marker;
 
-      google.maps.event.addListener(marker, 'click', function() {
-        const athleteDistance = parseFloat((athlete.ytd_run_totals / 1000).toFixed(2), 10).toLocaleString();
-        const routeDistance = parseFloat((config.route.distance / 1000).toFixed(2), 10).toLocaleString();
-        config.infoWindow.setContent(`
-          <div class='marker-popup'>
-            <b>${athlete.username}</b><br>
-            Distance run: ${athleteDistance} km<br>
-            Total route distance: ${routeDistance} km<br>
-            <b class="progress">${getPercentageOfRouteCompleted(athlete.ytd_run_totals) + "%</b> " + (athlete.nearestLocalityInfo ? athlete.nearestLocalityInfo.nearestLocality + (athlete.nearestLocalityInfo.nearestCountry ? ", " + athlete.nearestLocalityInfo.nearestCountry : "") : "")}
-          </div>`);
-        config.infoWindow.open(config.map, marker);
-      });
+      google.maps.event.addListener(marker, 'click', () => displayMarkerPopup(athlete));
       resolve(marker);
     });
   });
+}
+
+function displayMarkerPopup(athlete) {
+  const athleteDistance = parseFloat((athlete.ytd_run_totals / 1000).toFixed(2), 10);
+  const routeDistance = parseFloat((config.route.distance / 1000).toFixed(2), 10);
+  const distanceRemaining = routeDistance - athleteDistance;
+  const percentageCompleted = getPercentageOfRouteCompleted(athlete.ytd_run_totals);
+
+  // Create an element for the "nearest" info
+  let localityInfo = "";
+  if (athlete.nearestLocalityInfo) {
+    localityInfo = athlete.nearestLocalityInfo.nearestLocality;
+
+    if (athlete.nearestLocalityInfo.nearestLocality && athlete.nearestLocalityInfo.nearestCountry) {
+      localityInfo += "<br>";
+    }
+    localityInfo += athlete.nearestLocalityInfo.nearestCountry;
+  }
+
+  let content = `<div class='marker-popup'>
+                  <b>${athlete.username}</b><br>
+                  ${athleteDistance.toLocaleString()} km<br>`;
+  
+  if (distanceRemaining > 0) {
+    content += `${distanceRemaining.toLocaleString()} km remaining<br>`;
+  }
+
+  content += `<b class="progress">${percentageCompleted}%</b><br>
+              <b class="nearest">${localityInfo}</b>
+            </div>`;
+
+  config.infoWindow.setContent(content);
+  config.infoWindow.open(config.map, athlete.marker);
 }
 
 function checkUrlExists(url) {
@@ -106,7 +128,7 @@ function getPercentageOfRouteCompleted(totalDistance) {
 
 // Route the directions and pass the response to a function to create markers
 function getDirectionsForRoute() {
-  getDestinations.then(() => {
+  return new Promise((resolve, reject) => getDestinations.then(() => {
     const request = {
       origin: config.startAddress,
       destination: config.endAddress,
@@ -114,11 +136,11 @@ function getDirectionsForRoute() {
     };
 
     const directionsService = new google.maps.DirectionsService();
-    directionsService.route(request, plotRouteOnMap);
-  });
+    directionsService.route(request, (response, status) => plotRouteOnMap(response, status, resolve, reject));
+  }));
 }
 
-function plotRouteOnMap(response, status) {
+function plotRouteOnMap(response, status, resolve, reject) {
   if (status == google.maps.DirectionsStatus.OK) {
     // Remove the loading spinner
     document.querySelector(".loading-spinner").remove();
@@ -154,6 +176,9 @@ function plotRouteOnMap(response, status) {
     config.route.line.setMap(config.map);
     config.map.setCenter(config.route.line.getPath().getAt(0));
     config.map.fitBounds(bounds);
+    resolve();
+  } else {
+    reject();
   }
 }
 
@@ -163,7 +188,7 @@ function getAthletesDetails() {
     if (!res.error) {
       config.athletes = res;
 
-      setTimeout(() => updateAthleteLocations(), 2000);
+      updateAthleteLocations();
     }
   });
 }
@@ -183,10 +208,16 @@ function updateAthleteLocations() {
         // Get the distance on the route line. Use the route end if completed or exceeded
         const positionOnRoute = distance >= config.route.distance ? config.route.end.latlng : config.route.line.GetPointAtDistance(distance);
 
-        // Update the map and marker
-        config.map.panTo(positionOnRoute);
-        config.map.setZoom(8);
         createMarker.then(marker => marker.setPosition(positionOnRoute));
+
+        // Update the map and marker for the leader
+        if (index === 0) {
+          config.map.panTo(positionOnRoute);
+          config.map.setZoom(8);
+          addLeaderboardTitle();
+        }
+
+        addToLeaderboard(athlete);
 
         // Reverse geocode to try and get a place name
         // Update header with nearest locations
@@ -232,8 +263,7 @@ function reverseGeoCodeLookups(athlete, geocodeResults) {
     const countryMatches = getReverseGeocodeResultForType(geocodeResults, 'country');
 
     if (countryMatches.length) {
-      // If the locality exists, just return the country short name
-      nearestCountry = nearestLocality ? countryMatches[0].short_name : countryMatches[0].long_name;
+      nearestCountry = countryMatches[0].long_name;
     }
   }
   athlete.nearestLocalityInfo = {nearestLocality, nearestCountry};
@@ -243,36 +273,34 @@ function getReverseGeocodeResultForType(geocodeResults, type) {
   return geocodeResults[0].address_components.filter(ac => ac.types.indexOf(type) > -1)
 }
 
-// Update the header with the locality info and the progress completed percentage
-function displayNearestLocalityInHeader(athlete) {
+function addLeaderboardTitle() {
+  const h1 = document.createElement("h1");
+  h1.innerText = "Leaderboard";
+  document.querySelector("header").insertBefore(h1, document.querySelector(".athlete-leaderboard"));
+}
+
+function addToLeaderboard(athlete) {
   const li = document.createElement("li");
   li.classList.add("athlete-score");
+  li.setAttribute("athlete-id", athlete.id);
   document.querySelector(".athlete-leaderboard").appendChild(li);
 
   // Create an element for the athlete's name
   const nameBadge = document.createElement("span");
   nameBadge.classList.add("athlete-name");
-  nameBadge.innerText = athlete.username + " ";
+  nameBadge.innerText = athlete.username;
   li.appendChild(nameBadge);
+}
+
+// Update the header with the locality info and the progress completed percentage
+function displayNearestLocalityInHeader(athlete) {
+  const li = document.querySelector(`[athlete-id="${athlete.id}"]`);
 
   // Create an element for their progress
   const progress = document.createElement("span");
   progress.classList.add("progress");
-  progress.innerText = getPercentageOfRouteCompleted(athlete.ytd_run_totals) + "% ";
+  progress.innerText = ` ${getPercentageOfRouteCompleted(athlete.ytd_run_totals)}%`;
   li.appendChild(progress);
-
-  // Create an element for the "nearest" info
-  if (athlete.nearestLocalityInfo) {
-    const nearest = document.createElement("span");
-    nearest.classList.add("nearest");
-    nearest.innerText = athlete.nearestLocalityInfo.nearestLocality;
-
-    if (athlete.nearestLocalityInfo.nearestLocality && athlete.nearestLocalityInfo.nearestCountry) {
-      nearest.innerText += ", ";
-    }
-    nearest.innerText += athlete.nearestLocalityInfo.nearestCountry;
-    li.appendChild(nearest);
-  }
 }
 
 // Extend the Google Maps API with some custom methods. Credit: http://jsfiddle.net/geocodezip/kzcm02d6/136/
