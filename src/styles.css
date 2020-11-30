@@ -123,7 +123,7 @@ h1 {
 }
 
 /* Style the Map marker image */
-img[src*='pictures/athletes'] {
+img[src*='pictures/athletes'], img[src*='/picture?'] {
   border-radius: 50%;
 }
 
