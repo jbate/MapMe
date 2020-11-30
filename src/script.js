@@ -35,9 +35,10 @@ function initialize() {
   getMapsId.then(res => res.json()).then(mapResponse => {
     // Create a map
     const myOptions = {
-      zoom: 10,
+      zoom: 3,
       mapTypeId: google.maps.MapTypeId.ROADMAP,
-      mapId: mapResponse.id
+      mapId: mapResponse.id,
+      center: { lat: 0, lng: 0 }
     }
     config.map = new google.maps.Map(document.getElementById("map-canvas"), myOptions);
 
