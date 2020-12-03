@@ -232,10 +232,10 @@ function createAthleteMarker(athlete) {
 }
 
 function displayMarkerPopup(athlete) {
-  const athleteDistance = parseFloat((athlete.ytd_run_totals / 1000).toFixed(2), 10);
+  const athleteDistance = parseFloat((getAthleteDistanceForYear(athlete) / 1000).toFixed(2), 10);
   const routeDistance = parseFloat((config.route.distance / 1000).toFixed(2), 10);
   const distanceRemaining = routeDistance - athleteDistance;
-  const percentageCompleted = getPercentageOfRouteCompleted(athlete.ytd_run_totals);
+  const percentageCompleted = getPercentageOfRouteCompleted(getAthleteDistanceForYear(athlete));
 
   // Create an element for the "nearest" info
   let localityInfo = "";
@@ -383,7 +383,7 @@ function updateAthleteLocations() {
 function getAthleteDistanceForYear(athlete) {
   const year = new Date().getFullYear();
   const distance = 0;
-  if (athlete.stats[year] && athlete.stats[year].type === "run") {
+  if (athlete.stats[year] && athlete.stats[year].full.type === "run") {
     return athlete.stats[year].full.total;
   }
   return distance;
@@ -392,7 +392,7 @@ function getAthleteDistanceForYear(athlete) {
 // Update the athlete's line on the map.
 // Get the index on the route's line for their distance and use this to create a second line.
 function updateAthleteDistanceLine(athlete) {
-  const pathIndexAtDistance = config.route.line.GetIndexAtDistance(athlete.ytd_run_totals);
+  const pathIndexAtDistance = config.route.line.GetIndexAtDistance(getAthleteDistanceForYear(athlete));
   athlete.line = new google.maps.Polyline({path: config.route.line.getPath().getArray().slice(0, pathIndexAtDistance), strokeColor: "#0000FF", strokeWeight: 6});
   athlete.line.setMap(config.map);
 }
@@ -516,7 +516,7 @@ function displayNearestLocalityInHeader(athlete) {
   // Create an element for their progress
   const progress = document.createElement("span");
   progress.classList.add("progress");
-  progress.innerText = ` ${getPercentageOfRouteCompleted(athlete.ytd_run_totals)}%`;
+  progress.innerText = ` ${getPercentageOfRouteCompleted(getAthleteDistanceForYear(athlete))}%`;
   li.appendChild(progress);
 }
 
