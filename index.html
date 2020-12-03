@@ -3,15 +3,16 @@
   <head>
     <title>MapMe</title>
     <link rel="stylesheet" type="text/css" href="./src/styles.css"></link>
-    <script type="text/javascript" src="https://maps.googleapis.com/maps/api/js?libraries=geometry,places&amp;v=beta&amp;key=AIzaSyDpHo5sA8q1SbWWTr_vUplPH7cicNib_2g&amp;map_ids=5ba6774e3b35ec6b"></script>
   </head>
   <body>
     <header>
-      <div class="loading-spinner"><div></div><div></div><div></div></div>
-      <ol class="athlete-leaderboard"></ol>
+      <div class="top-bar">
+        <a href="/" class="app-name">MapMe.run</a>
+        <a href="https://mapme-run.herokuapp.com" class="auth-button">Login using Strava</a>
+      </div>
+      <div class="loading-spinner hidden"><div></div><div></div><div></div></div>
     </header>
-    <aside class="auth-button-container"><a href="https://mapme-run.herokuapp.com" class="auth-button">Join using Strava</a></aside>
-    <div id="map-canvas"></div>
+    <main></main>
 
     <script src="./src/script.js"></script>
   </body>

@@ -49,8 +49,7 @@ const strategy = new StravaStrategy(stravaConfig, async (accessToken, refreshTok
     given_name: profile.name.givenName,
     profile_picture: profile._json.profile_medium,
     refresh_token: refreshToken,
-    date_created: Date.now(),
-    ytd_run_totals: 0
+    date_created: Date.now()
   };
 
   const dbUser = await findUser(user.id);
@@ -64,59 +63,6 @@ const strategy = new StravaStrategy(stravaConfig, async (accessToken, refreshTok
 });
 
 
-// Database operations
-async function addUser(user) {
-  try {
-    console.log('Adding user to db', user);
-    return await dbConn.then(client => client.db(dbName).collection("users").insertOne(user));
-  } catch (err) {
-    console.log("Add user error", err.stack);
-  }
-}
-
-async function updateUserTotal(userId, distance) {
-  try {
-    const filter = {id: userId};
-    const update = {
-      $set: {
-        ytd_run_totals: distance,
-        last_updated: Date.now()
-      }
-    };
-    dbConn.then(client => client.db(dbName).collection("users").updateOne(filter, update));
-  } catch (err) {
-    console.log("Update user error", err.stack);
-  }
-}
-
-async function findUser(userId) {
-  try {
-    return await dbConn.then(async client => {
-      return await client.db(dbName).collection("users").findOne({
-        id: userId
-      });
-    });
-
-  } catch (err) {
-    console.log("Find user error", err.stack);
-  }
-}
-
-async function findUsers() {
-  try {
-    return await dbConn.then(async client => {
-      const userTable = client.db(dbName).collection("users");
-      
-      // Find all users, sort by ytd_run_totals asc
-      return await userTable.find({}).sort({ytd_run_totals: -1});
-    });
-
-  } catch (err) {
-    console.log("Find users error", err.stack);
-    return null;
-  }
-}
-
 passport.use(strategy);
 app.get('/add-user', passport.authenticate('strava', {scope:['read']}));
 app.get('/callback', passport.authenticate('strava', {
@@ -127,10 +73,19 @@ app.get('/callback', passport.authenticate('strava', {
 
 app.get('/', (req, res) => res.redirect(process.env.AUTH_SUCCESS_REDIRECT));
 
-app.get('/get-user-totals', async(req, res) => {
-  const users = await findUsers();
-  let response = [];
+app.get('/get-map/:mapCode', async(req, res) => {
+  const map = await findMap(req.params.mapCode);
+  if (map) {
+    res.json(map);
+  } else {
+    res.sendStatus(404);
+  }
+});
 
+app.get('/get-map/:mapCode/users', async(req, res) => {
+  const mapCode = req.params.mapCode;
+  const users = await findUsersByMapCode(mapCode);
+  let response = [];
   if (users) {
     users.toArray().then(usersArray => {
       usersArray.forEach(u => {
@@ -140,6 +95,21 @@ app.get('/get-user-totals', async(req, res) => {
         }
 
         response.push(u);
+      });
+      res.json(response);
+    });
+  } else {
+    res.json(response);
+  }
+});
+
+app.get('/get-maps', async(req, res) => {
+  const maps = await findMaps();
+  let response = [];
+  if (maps) {
+    maps.toArray().then(mapsArray => {
+      mapsArray.forEach(map => {
+        response.push(map);
       });
       res.json(response);
     });
@@ -173,10 +143,6 @@ async function getStatsFromStrava(user) {
   }
 }
 
-app.get('/get-destinations', (req, res) => res.json({startAddress: process.env.START, endAddress: process.env.END}));
-
-app.get('/get-maps-id', (req, res) => res.json({id: process.env.GOOGLE_MAPS_ID}));
-
 app.get('/error', (req, res) => res.send('LOGIN ERROR'));
 
 passport.serializeUser((user, done) => done(null, user))
@@ -193,3 +159,94 @@ if (!port) {
 app.listen(port, function() {
     console.log(`Listening on port ${port}`);
 });
+
+// Database operations
+async function addUser(user) {
+  try {
+    console.log('Adding user to db', user);
+    return await dbConn.then(client => client.db(dbName).collection("users").insertOne(user));
+  } catch (err) {
+    console.log("Add user error", err.stack);
+  }
+}
+
+async function updateUserTotal(userId, distance) {
+  try {
+    const filter = {id: userId};
+    const update = {
+      $set: {
+        last_updated: Date.now()
+      }
+    };
+
+    const stats = {
+      "type": "run",
+      "total": distance
+    };
+
+    // Update the user stats for the current year and month
+    const year = new Date().getFullYear();
+    const month = new Date().getMonth() + 1;
+    update.$set[`stats.${year}.full`] = stats;
+    update.$set[`stats.${year}.${month}`] = stats;
+
+    dbConn.then(client => client.db(dbName).collection("users").updateOne(filter, update));
+  } catch (err) {
+    console.log("Update user error", err.stack);
+  }
+}
+
+async function findUser(userId) {
+  try {
+    return await dbConn.then(async client => {
+      return await client.db(dbName).collection("users").findOne({
+        id: userId
+      });
+    });
+
+  } catch (err) {
+    console.log("Find user error", err.stack);
+  }
+}
+
+async function findUsersByMapCode(mapCode) {
+  try {
+    return await dbConn.then(async client => {
+      const userTable = client.db(dbName).collection("users");
+      
+      // Find all users, sort by ytd_run_totals asc
+      const year = new Date().getFullYear();
+      return await userTable.find({
+        maps: mapCode
+      }).sort({[`stats.${year}.full.total`]: -1});
+    });
+
+  } catch (err) {
+    console.log("Find users by map error", err.stack);
+    return null;
+  }
+}
+
+async function findMap(mapCode) {
+  try {
+    return await dbConn.then(async client => {
+      return await client.db(dbName).collection("maps").findOne({code: mapCode}, {passcode: 0});
+    });
+
+  } catch (err) {
+    console.log("Find map error", err.stack);
+  }
+}
+
+async function findMaps() {
+  try {
+    return await dbConn.then(async client => {
+      // Find all active (public) maps
+      return await client.db(dbName).collection("maps").find({private: false, active: true}).project({passcode: 0});
+    });
+
+  } catch (err) {
+    console.log("Find maps error", err.stack);
+    return null;
+  }
+}

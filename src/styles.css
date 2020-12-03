@@ -2,6 +2,10 @@
   font-family: DayPosterBlack;
   src: url('./fonts/DayPosterBlack.ttf');
 }
+@font-face {
+  font-family: Bree;
+  src: url('./fonts/BreeSerif_Reg.otf');
+}
 
 * {
   box-sizing: border-box;
@@ -14,18 +18,40 @@ html {
 body {
   height: 100%;
   margin: 0;
-  display: flex;
-  flex-wrap: wrap;
+  background-color: #333;
+}
+
+.app-name {
+  color: #333;
+  text-decoration: none;
+}
+
+.map-page .app-name {
+  color: white;
+}
+
+.top-bar {
+  font-size: 1.5rem;
+  line-height: 2.5rem;
+  padding: 0 20px;
+  font-family: Bree,'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+.map-page .top-bar {
+  background-color: #333;
+  color: white;
 }
 
 header {
-  height: 20vh;
-  background-color: aliceblue;
-  border-bottom: 3px solid green;
+  background-color: #f6f6f6;
+  border-bottom: 3px solid #000;
   display: flex;
-  flex: 0 0 90%;
   flex-direction: column;
   overflow: hidden;
+}
+
+.map-page header {
+  border-color: green;
 }
 
 .athlete-leaderboard {
@@ -44,8 +70,17 @@ h1 {
   display: block;
   font-family: DayPosterBlack, 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 1.5rem;
+  line-height: 4rem;
   color: green;
-  margin: 0 2rem;
+  margin: 0 1rem;
+}
+
+.route-details {
+  font-family: 'Bree', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  padding: 1rem;
+  font-size: 2rem;
+  border-bottom: 1px solid #ccc;
+  color: #333;
 }
 
 .athlete-leaderboard .athlete-score {
@@ -77,6 +112,14 @@ h1 {
   content: "\01F3C6"; /* trophy */
 }
 
+.map-start::before {
+  content: "\01F4CD"; /* pin */
+}
+
+.map-end::before {
+  content: "\01F3C1"; /* checkered flag */
+}
+
 .progress {
   color: #e4002b;
 }
@@ -89,24 +132,16 @@ h1 {
   color: #333;
 }
 
-.auth-button-container {
-  align-items: center;
-  display: flex;
-  flex: 0 0 10%;
-  padding: 20px;
-  border-left: 2px solid #ccc;
-  box-shadow: 0px 1px 10px 1px #aaa, inset 0px -1px 10px 1px #aaa;
-  background-color: white;
-}
-
 .auth-button {
   background-color: #f65624;
   color: white;
   font-family: Helvetica;
-  padding: 10px;
+  padding: 0 2rem;
   margin-left: auto;
   text-decoration: none;
+  text-align: center;
   border: 2px solid transparent;
+  float: right;
 }
 
 .auth-button:hover {
@@ -117,9 +152,62 @@ h1 {
   transform: translate(1px, 1px);
 }
 
-[id="map-canvas"] {
+main {
   width: 100%;
-  height: 80vh;
+}
+
+.map-page header {
+  height: 40vh;
+}
+
+.map-page main {
+  height: 60vh;
+}
+
+[id="map-canvas"] {
+  height: 100%;
+}
+
+.maps-list-grid {
+  display: grid;
+  list-style: none;
+  font-family: Bree,'Helvetica Neue', Helvetica, Arial, sans-serif;
+  padding: 2rem;
+  margin: 0;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-auto-flow: dense;
+  grid-auto-rows: 2fr;
+  grid-gap: 2rem;
+}
+
+@media screen and (max-width: 1024px) {
+  .maps-list-grid {
+    display: block;
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.maps-list-grid li {
+  background-color: #3e3c3c;
+  padding: 1rem;
+  border: 1px solid #000;
+}
+
+.maps-list-grid a {
+  text-decoration: none;
+  color: white;
+  display: flex;
+  flex-direction: column;
+}
+
+.maps-list-grid .map-name {
+  text-decoration: underline;
+}
+
+.maps-list-grid img {
+  display: block;
+  max-width: 100%;
+  border: 1px solid #ccc;
 }
 
 /* Style the Map marker image */
@@ -133,7 +221,9 @@ img[src*='pictures/athletes'], img[src*='/picture?'] {
 
 .loading-spinner {
   display: inline-block;
-  position: relative;
+  position: absolute;
+  left: 50%;
+  top: 50px;
   margin: 0 auto;
   width: 80px;
   height: 80px;
@@ -169,27 +259,12 @@ img[src*='pictures/athletes'], img[src*='/picture?'] {
   }
 }
 
+.hidden {
+  display: none;
+}
+
 @media only screen and (max-width: 1024px) {
-  [id="map-canvas"] {
-    height: 70vh;
-  }
-
-  header {
-    flex-basis: 100%;
-  }
-
-  .auth-button-container {
-    order: 3;
-    height: 10vh;
-    flex-basis: 100%;
-    justify-content: center;
-    border-left: 0;
-    border-top: 2px solid #ccc;
-    box-shadow: inset 1px 5px 10px 1px #aaa;
-  }
-
-  .auth-button {
-    margin-left: initial;
-    font-size: 3rem;
+  h1, .auth-button {
+    font-size: 2rem;
   }
 }

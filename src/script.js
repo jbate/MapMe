@@ -1,63 +1,213 @@
 const apiURL = location.hostname === "localhost" ? "http://localhost:3000" : "https://mapme-run.herokuapp.com";
 document.querySelector('.auth-button').setAttribute("href", apiURL + "/add-user");
 
-const config = {
-  startAddress: "",
-  endAddress: "",
-  map: null,
-  directionsDisplay: null,
-  route: {
-    start: {},
-    end: {},
-    distance: 0,
-    line: new google.maps.Polyline({
-      path: [],
-      strokeColor: '#FF0000',
-      strokeWeight: 2
+const defaultConfig = function () {
+  return {
+    startAddress: "",
+    endAddress: "",
+    map: null,
+    directionsDisplay: null,
+    route: {
+      start: {},
+      end: {},
+      distance: 0,
+      line: new google.maps.Polyline({
+        path: [],
+        strokeColor: '#FF0000',
+        strokeWeight: 2
+      })
+    },
+    athletes: [],
+    infoWindow: new google.maps.InfoWindow({
+      size: new google.maps.Size(150, 50)
     })
-  },
-  athletes: [],
-  infoWindow: new google.maps.InfoWindow({
-    size: new google.maps.Size(150, 50)
-  })
+  };
+}
+let config = {};
+const mapKey = "AIzaSyDpHo5sA8q1SbWWTr_vUplPH7cicNib_2g";
+
+let googleMapsScriptIsInjected = false;
+
+const injectGoogleMapsApiScript = (options = {}) => {
+  if (googleMapsScriptIsInjected) {
+    throw new Error('Google Maps Api is already loaded.');
+  }
+
+  const optionsQuery = Object.keys(options)
+    .map(k => `${encodeURIComponent(k)}=${encodeURIComponent(options[k])}`)
+    .join('&');
+
+  const url = `https://maps.googleapis.com/maps/api/js?${optionsQuery}`;
+
+  const script = document.createElement('script');
+
+  script.setAttribute('src', url);
+  script.setAttribute('async', '');
+  script.setAttribute('defer', '');
+
+  document.head.appendChild(script);
+
+  googleMapsScriptIsInjected = true;
 };
 
-google.maps.event.addDomListener(window, "load", initialize);
+let googleMapsApiPromise = null;
 
-const getDestinations = fetch(apiURL + '/get-destinations').then(res => res.json()).then(res => {
-  config.startAddress = res.startAddress;
-  config.endAddress = res.endAddress;
-});
+const loadGoogleMapsApi = (apiKey, options = {}) => {
+  if (!googleMapsApiPromise) {
+    googleMapsApiPromise = new Promise((resolve, reject) => {
+      try {
+        window.onGoogleMapsApiLoaded = resolve;
 
-const getMapsId = fetch(apiURL + '/get-maps-id');
+        injectGoogleMapsApiScript({
+          key: apiKey,
+          callback: 'onGoogleMapsApiLoaded',
+          ...options,
+        });
+      } catch (error) {
+        reject(error);
+      }
+    }).then(() => createGoogleMapsExtensions()).then(() => window.google.maps);
+  }
 
-function initialize() {
-  getMapsId.then(res => res.json()).then(mapResponse => {
-    // Create a map
-    const myOptions = {
-      zoom: 3,
-      mapTypeId: google.maps.MapTypeId.ROADMAP,
-      mapId: mapResponse.id,
-      center: { lat: 0, lng: 0 }
-    }
-    config.map = new google.maps.Map(document.getElementById("map-canvas"), myOptions);
+  return googleMapsApiPromise;
+};
 
-    // Centre the map on the start location.
-    // Use the geocoder to get the address details. We could hardcode in the lat/lng but this is useful for dynamic, user-defined, start locations.
-    if (config.startAddress) {
-      const geocoder = new google.maps.Geocoder();
-      geocoder.geocode({'address': config.startAddress}, results => config.map.setCenter(results[0].geometry.location));
-    }
+window.addEventListener("hashchange", loadMap, false);
 
-    // Create a renderer for directions and bind it to the map.
-    config.directionsDisplay = new google.maps.DirectionsRenderer({map: config.map});
+// Try and look up a map based on the map code
+loadMap();
 
-    // Draw the lines and get the directions
-    const getDirections = getDirectionsForRoute();
+function loadMap() {
+  let mapCode = lookupMapCode();
 
-    // Draw where the athletes are along the route based on their progress
-    getDirections.then(() => getAthletesDetails()).catch(e => console.log(e));
-  });
+  if (mapCode) {
+    removeLeaderboard();
+    addLoadingSpinner();
+
+    fetch(apiURL + '/get-map/' + mapCode).then(async res => {
+      if (res.ok) {
+        const map = await res.json();
+
+        loadGoogleMapsApi(mapKey, {
+          libraries: "geometry,places",
+          v: "beta",
+          map_ids: "5ba6774e3b35ec6b"
+        }).then(() => {
+          console.log(map);
+          setupMapPage(map);
+
+          config.mapCode = mapCode;
+          config.startAddress = `${map.start_city}, ${map.start_country}`;
+          config.endAddress = `${map.end_city}, ${map.end_country}`;
+
+          // Centre the map on the start location.
+          // Use the geocoder to get the address details. We could hardcode in the lat/lng but this is useful for dynamic, user-defined, start locations.
+          if (config.startAddress) {
+            const geocoder = new google.maps.Geocoder();
+            geocoder.geocode({'address': config.startAddress}, results => config.map.setCenter(results[0].geometry.location));
+          }
+
+          // Create a renderer for directions and bind it to the map.
+          config.directionsDisplay = new google.maps.DirectionsRenderer({map: config.map});
+
+          // Draw the lines and get the directions
+          const getDirections = getDirectionsForRoute();
+
+          // Draw where the athletes are along the route based on their progress
+          getDirections.then(() => getAthletesDetails()).catch(e => console.log(e));
+        });
+      } else if (res.status === 404) {
+        removeLoadingSpinner();
+        console.log('Map not found');
+      }
+    });
+  } else {
+    // Clear existing top bar and leaderboards
+    clearMapPage();
+
+    // Choose new map
+    fetch(apiURL + '/get-maps').then(res => res.json()).then(maps => {
+      console.log("maps list", maps);
+      maps.forEach((map, index) => {
+        const link = document.createElement("a");
+        link.href = "/#/" + map.code;
+
+        const img = document.createElement("img");
+        const mapStart = `${map.start_city}, ${map.start_country}`;
+        const mapEnd = `${map.end_city}, ${map.end_country}`;
+        const mapCentre = `${map.map_centre}`;
+        const src = "https://maps.googleapis.com/maps/api/staticmap?key=" + mapKey + "&zoom=4&size=980x450&maptype=roadmap";
+        const centre = "&center=" + mapCentre;
+        const startMarker = "&markers=color:green%7Clabel:S%7C" + mapStart;
+        const endMarker ="&markers=color:red%7Clabel:F%7C" + mapEnd;
+        img.src = src + centre + startMarker + endMarker;
+        img.setAttribute("alt", `A map from ${mapStart} to ${mapEnd}`);
+        
+        if (index === 0) {
+          const ol = document.createElement("ol");
+          ol.classList.add("maps-list-grid");
+          document.querySelector("main").appendChild(ol);
+        }
+
+        const list = document.querySelector(".maps-list-grid");
+        const li = document.createElement("li");
+
+        link.innerHTML = `<span class="map-name">${map.name}</span>`;
+        link.innerHTML += `<span class="map-start">${map.start_city}</span>`;
+        link.innerHTML += `<span class="map-end">${map.end_city}</span>`;
+        // link.innerHTML += `<span class="checkpoint-count">0</span>`;
+        // link.innerHTML += `<span class="athlete-count">0</span>`;
+        link.appendChild(img);
+
+        li.appendChild(link);
+        list.appendChild(li);
+      });
+    });
+  }
+}
+
+function clearMapPage() {
+  removeNode(".route-details");
+  document.querySelector("main").innerHTML = "";
+  removeLeaderboard();
+  document.body.classList.remove("map-page");
+}
+
+function setupMapPage(map) {
+  document.body.classList.add("map-page");
+  addRouteDetails();
+  updateRouteDetailsTitle(map.name);
+  resetConfig();
+  loadDefaultMap();
+}
+
+function loadDefaultMap() {
+  document.querySelector("main").innerHTML = "";
+  const canvas = document.createElement("div");
+  canvas.setAttribute("id", "map-canvas");
+  document.querySelector("main").appendChild(canvas);
+
+  // Create a default basic map
+  const myOptions = {
+    zoom: 3,
+    mapTypeId: google.maps.MapTypeId.ROADMAP,
+    center: { lat: 0, lng: 0 }
+  }
+  config.map = new google.maps.Map(document.querySelector("#map-canvas"), myOptions);
+}
+
+function lookupMapCode() {
+  let mapCode = null;
+  if (location.hash.indexOf("#/") > -1) {
+    mapCode = location.hash.substring(2);
+  } else {
+    mapCode = localStorage.getItem("mapCode");
+  }
+  return mapCode;
+}
+
+function resetConfig() {
+  config = defaultConfig();
 }
 
 // Create the marker and attach a click handler
@@ -129,22 +279,21 @@ function getPercentageOfRouteCompleted(totalDistance) {
 
 // Route the directions and pass the response to a function to create markers
 function getDirectionsForRoute() {
-  return new Promise((resolve, reject) => getDestinations.then(() => {
+  return new Promise((resolve, reject) => {
     const request = {
       origin: config.startAddress,
       destination: config.endAddress,
-      travelMode: google.maps.DirectionsTravelMode.DRIVING
+      travelMode: google.maps.DirectionsTravelMode.WALKING
     };
 
     const directionsService = new google.maps.DirectionsService();
     directionsService.route(request, (response, status) => plotRouteOnMap(response, status, resolve, reject));
-  }));
+  });
 }
 
 function plotRouteOnMap(response, status, resolve, reject) {
   if (status == google.maps.DirectionsStatus.OK) {
-    // Remove the loading spinner
-    document.querySelector(".loading-spinner").remove();
+    removeLoadingSpinner();
 
     config.directionsDisplay.setDirections(response);
     const bounds = new google.maps.LatLngBounds();
@@ -177,6 +326,10 @@ function plotRouteOnMap(response, status, resolve, reject) {
     config.route.line.setMap(config.map);
     config.map.setCenter(config.route.line.getPath().getAt(0));
     config.map.fitBounds(bounds);
+
+    // Calculate the length of the route
+    config.route.distance = google.maps.geometry.spherical.computeLength(config.route.line.getPath());
+    updateRouteDetailsDistance(config.route.distance);
     resolve();
   } else {
     reject();
@@ -185,7 +338,7 @@ function plotRouteOnMap(response, status, resolve, reject) {
 
 // Get athletes details from the server
 function getAthletesDetails() {
-  fetch(apiURL + '/get-user-totals').then(res => res.json()).then(res => {
+  fetch(apiURL + '/get-map/' + config.mapCode + "/users").then(res => res.json()).then(res => {
     if (!res.error) {
       config.athletes = res;
 
@@ -198,16 +351,13 @@ function updateAthleteLocations() {
   if (config.athletes && config.athletes.length) {
     config.athletes.forEach((athlete, index) => {
       if (!athlete.error) {
-        const distance = athlete.ytd_run_totals;
+        athlete.totalDistance = getAthleteDistanceForYear(athlete);
 
         // Create a marker for this athlete
         const createMarker = createAthleteMarker(athlete);
 
-        // Calculate the length of the route
-        config.route.distance = google.maps.geometry.spherical.computeLength(config.route.line.getPath());
-
         // Get the distance on the route line. Use the route end if completed or exceeded
-        const positionOnRoute = distance >= config.route.distance ? config.route.end.latlng : config.route.line.GetPointAtDistance(distance);
+        const positionOnRoute = athlete.totalDistance >= config.route.distance ? config.route.end.latlng : config.route.line.GetPointAtDistance(athlete.totalDistance);
 
         createMarker.then(marker => marker.setPosition(positionOnRoute));
 
@@ -215,7 +365,7 @@ function updateAthleteLocations() {
         if (index === 0) {
           config.map.panTo(positionOnRoute);
           config.map.setZoom(8);
-          addLeaderboardTitle();
+          addLeaderboard();
         }
 
         addToLeaderboard(athlete);
@@ -228,6 +378,15 @@ function updateAthleteLocations() {
       }
     });
   }
+}
+
+function getAthleteDistanceForYear(athlete) {
+  const year = new Date().getFullYear();
+  const distance = 0;
+  if (athlete.stats[year] && athlete.stats[year].type === "run") {
+    return athlete.stats[year].full.total;
+  }
+  return distance;
 }
 
 // Update the athlete's line on the map.
@@ -274,9 +433,66 @@ function getReverseGeocodeResultForType(geocodeResults, type) {
   return geocodeResults[0].address_components.filter(ac => ac.types.indexOf(type) > -1)
 }
 
+// DOM functions
+function addLoadingSpinner() {
+  document.querySelector(".loading-spinner").classList.remove("hidden");
+}
+
+function removeLoadingSpinner() {
+  document.querySelector(".loading-spinner").classList.add("hidden");
+}
+
+function updateRouteDetailsTitle(title) {
+  let titleEl = document.querySelector(".route-details .route-title");
+  if (!titleEl) {
+    titleEl = document.createElement("span");
+    titleEl.classList.add("route-title");
+    document.querySelector(".route-details").appendChild(titleEl);
+  }
+  titleEl.innerText = title;
+}
+
+function updateRouteDetailsDistance(distance) {
+  let distanceEl = document.querySelector(".route-details .route-distance");
+  if (!distanceEl) {
+    distanceEl = document.createElement("span");
+    distanceEl.classList.add("route-distance");
+    document.querySelector(".route-details").appendChild(distanceEl);
+  }
+
+  distanceEl.innerHTML = `&#8226; ${parseFloat((distance / 1000).toFixed(2), 10)} km`;
+}
+
+function addRouteDetails() {
+  const div = document.createElement("div");
+  div.classList.add("route-details");
+  document.querySelector("header").appendChild(div);
+}
+
+function addLeaderboard() {
+  const ol = document.createElement("ol");
+  ol.classList.add("athlete-leaderboard");
+  document.querySelector("header").appendChild(ol);
+
+  addLeaderboardTitle();
+}
+
+function removeLeaderboard() {
+  removeNode(".athlete-leaderboard");
+  removeNode(".leaderboard-title");
+}
+
+function removeNode(selector) {
+  const node = document.querySelector(selector);
+  if (node) {
+    node.remove();
+  }
+}
+
 function addLeaderboardTitle() {
   const h1 = document.createElement("h1");
   h1.innerText = "Leaderboard";
+  h1.classList.add("leaderboard-title");
   document.querySelector("header").insertBefore(h1, document.querySelector(".athlete-leaderboard"));
 }
 
@@ -305,58 +521,59 @@ function displayNearestLocalityInHeader(athlete) {
 }
 
 // Extend the Google Maps API with some custom methods. Credit: http://jsfiddle.net/geocodezip/kzcm02d6/136/
+function createGoogleMapsExtensions() {
+  // === A method which returns a GLatLng of a point a given distance along the path ===
+  // === Returns null if the path is shorter than the specified distance ===
+  google.maps.Polyline.prototype.GetPointAtDistance = function(metres) {
+    // some awkward special cases
+    if (metres === 0) {
+      return this.getPath().getAt(0);
+    }
 
-// === A method which returns a GLatLng of a point a given distance along the path ===
-// === Returns null if the path is shorter than the specified distance ===
-google.maps.Polyline.prototype.GetPointAtDistance = function(metres) {
-  // some awkward special cases
-  if (metres === 0) {
-    return this.getPath().getAt(0);
+    if (metres < 0 || this.getPath().getLength() < 2) {
+      return null;
+    }
+
+    let currentDistance = 0;
+    let oldDistance = 0;
+    let i = 1;
+    for (i = 1; (i < this.getPath().getLength() && currentDistance < metres); i++) {
+      oldDistance = currentDistance;
+      currentDistance += google.maps.geometry.spherical.computeDistanceBetween(this.getPath().getAt(i), this.getPath().getAt(i - 1));
+    }
+
+    if (currentDistance < metres) {
+      return null;
+    }
+
+    const p1 = this.getPath().getAt(i - 2);
+    const p2 = this.getPath().getAt(i - 1);
+    const m = (metres - oldDistance) / (currentDistance - oldDistance);
+    return new google.maps.LatLng(p1.lat() + (p2.lat() - p1.lat()) * m, p1.lng() + (p2.lng() - p1.lng()) * m);
   }
 
-  if (metres < 0 || this.getPath().getLength() < 2) {
-    return null;
+  // === A method which returns the Vertex number at a given distance along the path ===
+  // === Returns null if the path is shorter than the specified distance ===
+  google.maps.Polyline.prototype.GetIndexAtDistance = function(metres) {
+    // some awkward special cases
+    if (metres == 0) {
+      return this.getPath().getAt(0);
+    }
+
+    if (metres < 0) {
+      return null;
+    }
+
+    let currentDistance = 0;
+    let i = 1;
+    for (i = 1; (i < this.getPath().getLength() && currentDistance < metres); i++) {
+      currentDistance += google.maps.geometry.spherical.computeDistanceBetween(this.getPath().getAt(i), this.getPath().getAt(i - 1));
+    }
+
+    if (currentDistance < metres) {
+      return null;
+    }
+
+    return i;
   }
-
-  let currentDistance = 0;
-  let oldDistance = 0;
-  let i = 1;
-  for (i = 1; (i < this.getPath().getLength() && currentDistance < metres); i++) {
-    oldDistance = currentDistance;
-    currentDistance += google.maps.geometry.spherical.computeDistanceBetween(this.getPath().getAt(i), this.getPath().getAt(i - 1));
-  }
-
-  if (currentDistance < metres) {
-    return null;
-  }
-
-  const p1 = this.getPath().getAt(i - 2);
-  const p2 = this.getPath().getAt(i - 1);
-  const m = (metres - oldDistance) / (currentDistance - oldDistance);
-  return new google.maps.LatLng(p1.lat() + (p2.lat() - p1.lat()) * m, p1.lng() + (p2.lng() - p1.lng()) * m);
-}
-
-// === A method which returns the Vertex number at a given distance along the path ===
-// === Returns null if the path is shorter than the specified distance ===
-google.maps.Polyline.prototype.GetIndexAtDistance = function(metres) {
-  // some awkward special cases
-  if (metres == 0) {
-    return this.getPath().getAt(0);
-  }
-
-  if (metres < 0) {
-    return null;
-  }
-
-  let currentDistance = 0;
-  let i = 1;
-  for (i = 1; (i < this.getPath().getLength() && currentDistance < metres); i++) {
-    currentDistance += google.maps.geometry.spherical.computeDistanceBetween(this.getPath().getAt(i), this.getPath().getAt(i - 1));
-  }
-
-  if (currentDistance < metres) {
-    return null;
-  }
-
-  return i;
 }
