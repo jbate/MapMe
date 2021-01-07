@@ -165,20 +165,29 @@ app.post('/get-map/:mapCode/add', async(req, res) => {
 
 app.get('/get-map/:mapCode/users', async(req, res) => {
   const mapCode = req.params.mapCode;
-  const users = await findUsersByMapCode(mapCode);
+  const map = await findMap(mapCode);
+  let users = [];
+  // If the map is a solo one then add the currently logged in user
+  if (map && map.solo) {
+    if (req.user) {
+      users.push(req.user);
+    }
+  } else {
+    // Else return all users assigned to that map
+    users = await findUsersByMapCode(mapCode);
+  }
+
   let response = [];
   if (users) {
-    users.toArray().then(usersArray => {
-      usersArray.forEach(u => {
-        // If the record in the database is potentially stale (over 60 seconds old)
-        if (!u.last_updated || u.last_updated < Date.now() - 60000) {
-          getStatsFromStrava(u);
-        }
+    users.forEach(u => {
+      // If the record in the database is potentially stale (over 60 seconds old)
+      if (!u.last_updated || u.last_updated < Date.now() - 60000) {
+        getStatsFromStrava(u);
+      }
 
-        response.push(u);
-      });
-      res.json(response);
+      response.push(u);
     });
+    res.json(response);
   } else {
     res.json(response);
   }
@@ -304,15 +313,10 @@ async function findUser(userId) {
 
 async function findUsersByMapCode(mapCode) {
   try {
-    return await dbConn.then(async client => {
-      const userTable = client.db(dbName).collection("users");
-      
-      // Find all users, sort by ytd_run_totals asc
-      const year = new Date().getFullYear();
-      return await userTable.find({
-        maps: mapCode
-      }).sort({[`stats.${year}.full.total`]: -1});
-    });
+    // Find all users, sort by ytd_run_totals asc
+    const year = new Date().getFullYear();
+    return await User.find({maps: mapCode}, 'id username family_name given_name date_created last_updated profile_picture stats maps')
+    .sort({[`stats.${year}.full.total`]: -1}).exec();
 
   } catch (err) {
     console.log("Find users by map error", err.stack);
@@ -322,7 +326,7 @@ async function findUsersByMapCode(mapCode) {
 
 async function findMap(mapCode) {
   try {
-    return await Map.findOne({ code: mapCode }, 'name year start_city start_country end_city end_country waypoints').exec();
+    return await Map.findOne({code: mapCode}, 'name year solo start_city start_country end_city end_country waypoints').exec();
 
   } catch (err) {
     console.log("Find map error", err.stack);
