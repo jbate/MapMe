@@ -32,8 +32,7 @@ body {
 
 .top-bar {
   font-size: 1.5rem;
-  line-height: 2.5rem;
-  padding: 0 20px;
+  padding: 1rem;
   font-family: Bree,'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 
@@ -156,6 +155,7 @@ h1 {
 
 .add-to-map-button {
   margin-left: auto;
+  font-size: inherit;
 }
 
 main {
@@ -184,13 +184,6 @@ main {
   grid-auto-flow: dense;
   grid-auto-rows: 2fr;
   grid-gap: 2rem;
-}
-
-@media screen and (max-width: 1024px) {
-  .maps-list-grid {
-    display: block;
-    grid-template-columns: 1fr 1fr;
-  }
 }
 
 .maps-list-grid li {
@@ -272,5 +265,14 @@ img[src*='pictures/athletes'], img[src*='/picture?'] {
 @media only screen and (max-width: 1024px) {
   h1, .auth-button {
     font-size: 2rem;
+  }
+
+  .top-bar {
+    font-size: 2.5rem;
+  }
+
+  .maps-list-grid {
+    display: block;
+    grid-template-columns: 1fr 1fr;
   }
 }
