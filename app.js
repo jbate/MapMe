@@ -287,9 +287,7 @@ async function addUserToMap(userId, mapCode) {
   try {
     const filter = {id: userId};
     const update = {
-      $push: {
-        maps: mapCode
-      }
+      $addToSet: {maps: mapCode}
     };
 
     return dbConn.then(client => client.db(dbName).collection("users").updateOne(filter, update));
