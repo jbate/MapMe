@@ -219,22 +219,20 @@ function resetConfig() {
 
 function getLoggedInUser() {
   fetch(apiURL + '/get-logged-in-user', {credentials: 'include'}).then(res => {
-    if (res) {
-      res.json().then(() => {
-        // Display add to map button
-        mapLoadedPromise.then(() => {
-          const topBar = document.querySelector(".top-bar");
-          if (topBar) {
-            const addButton = document.querySelector(".add-to-map-button") || document.createElement("button");
-            addButton.classList.add("add-to-map-button");
-            addButton.innerText = "+ Add myself to map";
-            addButton.addEventListener("click", addUserToMap);
+    res.json().then(() => {
+      // Display add to map button
+      mapLoadedPromise.then(() => {
+        const topBar = document.querySelector(".top-bar");
+        if (topBar) {
+          const addButton = document.querySelector(".add-to-map-button") || document.createElement("button");
+          addButton.classList.add("add-to-map-button");
+          addButton.innerText = "+ Add myself to map";
+          addButton.addEventListener("click", addUserToMap);
 
-            topBar.appendChild(addButton);
-          }
-        });
+          topBar.appendChild(addButton);
+        }
       });
-    } else {
+    }).catch(() => {
       // Display login button
       const topBar = document.querySelector(".top-bar");
       if (topBar) {
@@ -245,7 +243,7 @@ function getLoggedInUser() {
 
         topBar.appendChild(loginButton);
       }
-    }
+    });
   });
 }
 
