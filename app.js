@@ -7,6 +7,7 @@ const allowCrossDomain = function(req, res, next) {
   res.header('Access-Control-Allow-Origin', process.env.ACCESS_CONTROL_ALLOW_ORIGIN);
   res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With');
+  res.header('Access-Control-Allow-Credentials', true);
 
   // intercept OPTIONS method
   if ('OPTIONS' == req.method) {
@@ -26,12 +27,77 @@ const express = require("express");
 const app = express();
 
 const {MongoClient} = require("mongodb");
-const dbConn = MongoClient.connect(process.env.DATABASE_URL)
+const mongoose = require('mongoose');
+const {Schema} = mongoose;
+
+const userSchema = new Schema({
+  id: String,
+  username: String,
+  family_name: String,
+  given_name: String,
+  profile_picture: String,
+  refresh_token: String,
+  date_created: {type: Date, default: Date.now},
+  last_updated: {type: Date},
+  roles: [String],
+  maps: [String],
+  stats: Schema.Types.Mixed
+});
+
+const User = mongoose.model('User', userSchema);
+
+const mapSchema = new Schema({
+  code: String,
+  private: Boolean,
+  locked: Boolean,
+  name: String,
+  solo: Boolean,
+  active: Boolean,
+  year: Number,
+  start_city: String,
+  start_country: String,
+  end_city: String,
+  end_country: String,
+  map_centre: String,
+  created_date: {type: Date, default: Date.now},
+  created_by: String,
+  waypoints: Schema.Types.Mixed,
+  passcode: String
+});
+
+const Map = mongoose.model('Map', mapSchema);
+
+const dbConn = MongoClient.connect(process.env.DATABASE_URL);
 const dbName = "MapMeDatabase";
+
+mongoose.connect(process.env.DATABASE_URL, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  useFindAndModify: false,
+  useCreateIndex: true
+});
+
+const session = require('express-session');
+const MongoStore = require('connect-mongo')(session);
+
+app.use(session({
+  store: new MongoStore({mongooseConnection: mongoose.connection, ttl: 365 * 24 * 60 * 60}),
+  resave: false,
+  saveUninitialized: false,
+  secret: process.env.SESSION_SECRET
+}));
 
 app.use(allowCrossDomain);
 app.use(passport.initialize());
 app.use(passport.session());
+
+passport.serializeUser((user, done) => {
+  done(null, user.id);
+});
+passport.deserializeUser(async (id, done) => {
+  const dbUser = await findUser(id);
+  done(null, dbUser);
+});
 
 const strava = require('strava-v3');
 
@@ -49,6 +115,7 @@ const strategy = new StravaStrategy(stravaConfig, async (accessToken, refreshTok
     given_name: profile.name.givenName,
     profile_picture: profile._json.profile_medium,
     refresh_token: refreshToken,
+    roles: ["User"],
     date_created: Date.now()
   };
 
@@ -61,7 +128,6 @@ const strategy = new StravaStrategy(stravaConfig, async (accessToken, refreshTok
     done(false, user);
   }
 });
-
 
 passport.use(strategy);
 app.get('/add-user', passport.authenticate('strava', {scope:['read']}));
@@ -79,6 +145,21 @@ app.get('/get-map/:mapCode', async(req, res) => {
     res.json(map);
   } else {
     res.sendStatus(404);
+  }
+});
+
+app.post('/get-map/:mapCode/add', async(req, res) => {
+  let success = false;
+  console.log('req.isAuthenticated()', req.isAuthenticated());
+  console.log('req.user', req.user);
+  if (req.isAuthenticated() && req.user) {
+    success = await addUserToMap(req.user.id, req.params.mapCode);
+  }
+
+  if (success) {
+    res.sendStatus(200);
+  } else {
+    res.sendStatus(401);
   }
 });
 
@@ -107,16 +188,16 @@ app.get('/get-maps', async(req, res) => {
   const maps = await findMaps();
   let response = [];
   if (maps) {
-    maps.toArray().then(mapsArray => {
-      mapsArray.forEach(map => {
-        response.push(map);
-      });
-      res.json(response);
+    maps.forEach(map => {
+      response.push(map);
     });
+    res.json(response);
   } else {
     res.json(response);
   }
 });
+
+app.get('/get-logged-in-user', async(req, res) => res.json(req.user));
 
 async function getStatsFromStrava(user) {
   // Query the Strava API for a fresh record
@@ -144,9 +225,6 @@ async function getStatsFromStrava(user) {
 }
 
 app.get('/error', (req, res) => res.send('LOGIN ERROR'));
-
-passport.serializeUser((user, done) => done(null, user))
-passport.deserializeUser((id, done) => done(null, id));
 
 app.use('/src', express.static(path.join(__dirname, 'src')))
 
@@ -196,6 +274,21 @@ async function updateUserTotal(userId, distance) {
   }
 }
 
+async function addUserToMap(userId, mapCode) {
+  try {
+    const filter = {id: userId};
+    const update = {
+      $push: {
+        maps: mapCode
+      }
+    };
+
+    return dbConn.then(client => client.db(dbName).collection("users").updateOne(filter, update));
+  } catch (err) {
+    console.log("Add user to map error", err.stack);
+  }
+}
+
 async function findUser(userId) {
   try {
     return await dbConn.then(async client => {
@@ -229,9 +322,7 @@ async function findUsersByMapCode(mapCode) {
 
 async function findMap(mapCode) {
   try {
-    return await dbConn.then(async client => {
-      return await client.db(dbName).collection("maps").findOne({code: mapCode}, {passcode: 0});
-    });
+    return await Map.findOne({ code: mapCode }, 'name year start_city start_country end_city end_country waypoints').exec();
 
   } catch (err) {
     console.log("Find map error", err.stack);
@@ -240,11 +331,8 @@ async function findMap(mapCode) {
 
 async function findMaps() {
   try {
-    return await dbConn.then(async client => {
       // Find all active (public) maps
-      return await client.db(dbName).collection("maps").find({private: false, active: true}).project({passcode: 0});
-    });
-
+      return await Map.find({private: false, active: true}, 'code name year locked solo start_city start_country end_city end_country map_centre waypoints').exec();
   } catch (err) {
     console.log("Find maps error", err.stack);
     return null;

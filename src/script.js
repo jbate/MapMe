@@ -1,11 +1,11 @@
 const apiURL = location.hostname === "localhost" ? "http://localhost:3000" : "https://mapme-run.herokuapp.com";
-document.querySelector('.auth-button').setAttribute("href", apiURL + "/add-user");
 
 const defaultConfig = function () {
   return {
     startAddress: "",
     endAddress: "",
     map: null,
+    mapDetails: null,
     directionsDisplay: null,
     route: {
       start: {},
@@ -51,6 +51,7 @@ const injectGoogleMapsApiScript = (options = {}) => {
 };
 
 let googleMapsApiPromise = null;
+let mapLoadedPromise = null;
 
 const loadGoogleMapsApi = (apiKey, options = {}) => {
   if (!googleMapsApiPromise) {
@@ -72,61 +73,25 @@ const loadGoogleMapsApi = (apiKey, options = {}) => {
   return googleMapsApiPromise;
 };
 
-window.addEventListener("hashchange", loadMap, false);
+window.addEventListener("hashchange", tryLoadMap, false);
 
 // Try and look up a map based on the map code
-loadMap();
+tryLoadMap();
 
-function loadMap() {
+function tryLoadMap() {
   let mapCode = lookupMapCode();
 
   if (mapCode) {
     removeLeaderboard();
     addLoadingSpinner();
 
-    fetch(apiURL + '/get-map/' + mapCode).then(async res => {
-      if (res.ok) {
-        const map = await res.json();
-
-        loadGoogleMapsApi(mapKey, {
-          libraries: "geometry,places",
-          v: "beta",
-          map_ids: "5ba6774e3b35ec6b"
-        }).then(() => {
-          console.log(map);
-          setupMapPage(map);
-
-          config.mapCode = mapCode;
-          config.startAddress = `${map.start_city}, ${map.start_country}`;
-          config.endAddress = `${map.end_city}, ${map.end_country}`;
-
-          // Centre the map on the start location.
-          // Use the geocoder to get the address details. We could hardcode in the lat/lng but this is useful for dynamic, user-defined, start locations.
-          if (config.startAddress) {
-            const geocoder = new google.maps.Geocoder();
-            geocoder.geocode({'address': config.startAddress}, results => config.map.setCenter(results[0].geometry.location));
-          }
-
-          // Create a renderer for directions and bind it to the map.
-          config.directionsDisplay = new google.maps.DirectionsRenderer({map: config.map});
-
-          // Draw the lines and get the directions
-          const getDirections = getDirectionsForRoute();
-
-          // Draw where the athletes are along the route based on their progress
-          getDirections.then(() => getAthletesDetails()).catch(e => console.log(e));
-        });
-      } else if (res.status === 404) {
-        removeLoadingSpinner();
-        console.log('Map not found');
-      }
-    });
+    loadMap(mapCode);
   } else {
     // Clear existing top bar and leaderboards
     clearMapPage();
 
     // Choose new map
-    fetch(apiURL + '/get-maps').then(res => res.json()).then(maps => {
+    fetch(apiURL + '/get-maps', {credentials: 'include'}).then(res => res.json()).then(maps => {
       console.log("maps list", maps);
       maps.forEach((map, index) => {
         const link = document.createElement("a");
@@ -196,6 +161,48 @@ function loadDefaultMap() {
   config.map = new google.maps.Map(document.querySelector("#map-canvas"), myOptions);
 }
 
+function loadMap(mapCode) {
+  mapLoadedPromise = fetch(apiURL + '/get-map/' + mapCode, {credentials: 'include'}).then(async res => {
+    if (res.ok) {
+      const map = await res.json();
+
+      loadGoogleMapsApi(mapKey, {
+        libraries: "geometry,places",
+        v: "beta",
+        map_ids: "5ba6774e3b35ec6b"
+      }).then(() => {
+        console.log(map);
+        setupMapPage(map);
+        getLoggedInUser();
+
+        config.mapDetails = map;
+        config.mapCode = mapCode;
+        config.startAddress = `${map.start_city}, ${map.start_country}`;
+        config.endAddress = `${map.end_city}, ${map.end_country}`;
+
+        // Centre the map on the start location.
+        // Use the geocoder to get the address details. We could hardcode in the lat/lng but this is useful for dynamic, user-defined, start locations.
+        if (config.startAddress) {
+          const geocoder = new google.maps.Geocoder();
+          geocoder.geocode({'address': config.startAddress}, results => config.map.setCenter(results[0].geometry.location));
+        }
+
+        // Create a renderer for directions and bind it to the map.
+        config.directionsDisplay = new google.maps.DirectionsRenderer({map: config.map});
+
+        // Draw the lines and get the directions
+        const getDirectionsPromise = getDirectionsForRoute();
+
+        // Draw where the athletes are along the route based on their progress
+        getDirectionsPromise.then(() => getAthletesDetails()).catch(e => console.log(e));
+      });
+    } else if (res.status === 404) {
+      removeLoadingSpinner();
+      console.log('Map not found');
+    }
+  });
+}
+
 function lookupMapCode() {
   let mapCode = null;
   if (location.hash.indexOf("#/") > -1) {
@@ -208,6 +215,49 @@ function lookupMapCode() {
 
 function resetConfig() {
   config = defaultConfig();
+}
+
+function getLoggedInUser() {
+  fetch(apiURL + '/get-logged-in-user', {credentials: 'include'}).then(res => {
+    if (res) {
+      res.json().then(() => {
+        // Display add to map button
+        mapLoadedPromise.then(() => {
+          const topBar = document.querySelector(".top-bar");
+          if (topBar) {
+            const addButton = document.createElement("button");
+            addButton.classList.add("add-to-map-button");
+            addButton.innerText = "+ Add myself to map";
+            addButton.addEventListener("click", addUserToMap);
+
+            topBar.appendChild(addButton);
+          }
+        });
+      });
+    } else {
+      // Display login button
+      const topBar = document.querySelector(".top-bar");
+      if (topBar) {
+        const loginButton = document.createElement("a");
+        loginButton.classList.add("auth-button");
+        loginButton.innerText = "Login using Strava";
+        loginButton.setAttribute("href", apiURL + "/add-user");
+
+        topBar.appendChild(loginButton);
+      }
+    }
+  });
+}
+
+function addUserToMap() {
+  fetch(apiURL + '/get-map/' + config.mapCode + '/add', {
+    method: 'post',
+    credentials: 'include'
+  }).then(res => {
+    if (res.ok) {
+      tryLoadMap();
+    }
+  });
 }
 
 // Create the marker and attach a click handler
@@ -338,7 +388,7 @@ function plotRouteOnMap(response, status, resolve, reject) {
 
 // Get athletes details from the server
 function getAthletesDetails() {
-  fetch(apiURL + '/get-map/' + config.mapCode + "/users").then(res => res.json()).then(res => {
+  fetch(apiURL + '/get-map/' + config.mapCode + "/users", {credentials: 'include'}).then(res => res.json()).then(res => {
     if (!res.error) {
       config.athletes = res;
 
@@ -381,7 +431,7 @@ function updateAthleteLocations() {
 }
 
 function getAthleteDistanceForYear(athlete) {
-  const year = new Date().getFullYear();
+  const year = config.mapDetails.year;
   const distance = 0;
   if (athlete.stats[year] && athlete.stats[year].full.type === "run") {
     return athlete.stats[year].full.total;
@@ -464,7 +514,7 @@ function updateRouteDetailsDistance(distance) {
 }
 
 function addRouteDetails() {
-  const div = document.createElement("div");
+  const div = document.querySelector(".route-details") || document.createElement("div");
   div.classList.add("route-details");
   document.querySelector("header").appendChild(div);
 }
