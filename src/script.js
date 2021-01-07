@@ -225,7 +225,7 @@ function getLoggedInUser() {
         mapLoadedPromise.then(() => {
           const topBar = document.querySelector(".top-bar");
           if (topBar) {
-            const addButton = document.createElement("button");
+            const addButton = document.querySelector(".add-to-map-button") || document.createElement("button");
             addButton.classList.add("add-to-map-button");
             addButton.innerText = "+ Add myself to map";
             addButton.addEventListener("click", addUserToMap);
