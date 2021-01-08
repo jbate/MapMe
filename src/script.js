@@ -118,6 +118,7 @@ function tryLoadMap() {
         const li = document.createElement("li");
 
         link.innerHTML = `<span class="map-name">${map.name}</span>`;
+        link.innerHTML += `<span class="map-year">${map.year}</span>`;
         link.innerHTML += `<span class="map-start">${map.start_city}</span>`;
         link.innerHTML += `<span class="map-end">${map.end_city}</span>`;
         // link.innerHTML += `<span class="checkpoint-count">0</span>`;
@@ -501,14 +502,11 @@ function updateRouteDetailsTitle(title) {
 }
 
 function updateRouteDetailsDistance(distance) {
-  let distanceEl = document.querySelector(".route-details .route-distance");
-  if (!distanceEl) {
-    distanceEl = document.createElement("span");
-    distanceEl.classList.add("route-distance");
-    document.querySelector(".route-details").appendChild(distanceEl);
-  }
+  const distanceEl = document.querySelector(".route-details .route-distance") || document.createElement("span");
+  distanceEl.classList.add("route-distance");
+  document.querySelector(".route-details").appendChild(distanceEl);
 
-  distanceEl.innerHTML = `&#8226; ${parseFloat((distance / 1000).toFixed(2), 10)} km`;
+  distanceEl.innerHTML = ` &#8226; ${parseFloat((distance / 1000).toFixed(2), 10)} km &#8226; `;
 }
 
 function addRouteDetails() {
@@ -538,10 +536,11 @@ function removeNode(selector) {
 }
 
 function addLeaderboardTitle() {
-  const h1 = document.createElement("h1");
-  h1.innerText = "Leaderboard";
-  h1.classList.add("leaderboard-title");
-  document.querySelector("header").insertBefore(h1, document.querySelector(".athlete-leaderboard"));
+  const viewLeaderboardLink = document.createElement("a");
+  viewLeaderboardLink.innerText = "Show leaderboard";
+  viewLeaderboardLink.classList.add("route-leaderboard-toggle");
+  viewLeaderboardLink.addEventListener("click", toggleLeaderboard);
+  document.querySelector(".route-details").appendChild(viewLeaderboardLink);
 }
 
 function addToLeaderboard(athlete) {
@@ -555,6 +554,13 @@ function addToLeaderboard(athlete) {
   nameBadge.classList.add("athlete-name");
   nameBadge.innerText = athlete.username;
   li.appendChild(nameBadge);
+}
+
+function toggleLeaderboard() {
+  const shown = document.querySelector(".athlete-leaderboard").classList.toggle("show");
+  const viewLeaderboardLink = document.querySelector(".route-leaderboard-toggle");
+  const verb = shown ? "Hide" : "Show";
+  viewLeaderboardLink.innerText = `${verb} leaderboard`;
 }
 
 // Update the header with the locality info and the progress completed percentage
