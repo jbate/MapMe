@@ -286,17 +286,6 @@ function displayMarkerPopup(athlete) {
   const distanceRemaining = routeDistance - athleteDistance;
   const percentageCompleted = getPercentageOfRouteCompleted(getAthleteDistanceForYear(athlete));
 
-  // Create an element for the "nearest" info
-  let localityInfo = "";
-  if (athlete.nearestLocalityInfo) {
-    localityInfo = athlete.nearestLocalityInfo.nearestLocality;
-
-    if (athlete.nearestLocalityInfo.nearestLocality && athlete.nearestLocalityInfo.nearestCountry) {
-      localityInfo += "<br>";
-    }
-    localityInfo += athlete.nearestLocalityInfo.nearestCountry;
-  }
-
   let content = `<div class='marker-popup'>
                   <b>${athlete.username}</b><br>
                   ${athleteDistance.toLocaleString()} km<br>`;
@@ -306,7 +295,7 @@ function displayMarkerPopup(athlete) {
   }
 
   content += `<b class="progress">${percentageCompleted}%</b><br>
-              <b class="nearest">${localityInfo}</b>
+              <b class="nearest">${getAthleteLocalityInfo(athlete)}</b>
             </div>`;
 
   config.infoWindow.setContent(content);
@@ -420,8 +409,8 @@ function updateAthleteLocations() {
         addToLeaderboard(athlete);
 
         // Reverse geocode to try and get a place name
-        // Update header with nearest locations
-        getNearestLocality(athlete, positionOnRoute).then(() => displayNearestLocalityInHeader(athlete));
+        // Update leaderboard with nearest locations
+        getNearestLocality(athlete, positionOnRoute).then(() => displayNearestLocalityInLeaderboard(athlete));
 
         updateAthleteDistanceLine(athlete);
       }
@@ -480,6 +469,19 @@ function reverseGeoCodeLookups(athlete, geocodeResults) {
 
 function getReverseGeocodeResultForType(geocodeResults, type) {
   return geocodeResults[0].address_components.filter(ac => ac.types.indexOf(type) > -1)
+}
+
+function getAthleteLocalityInfo(athlete, divider = "<br>") {
+  let localityInfo = "";
+  if (athlete.nearestLocalityInfo) {
+    localityInfo = athlete.nearestLocalityInfo.nearestLocality;
+
+    if (athlete.nearestLocalityInfo.nearestLocality && athlete.nearestLocalityInfo.nearestCountry) {
+      localityInfo += divider;
+    }
+    localityInfo += athlete.nearestLocalityInfo.nearestCountry;
+  }
+  return localityInfo;
 }
 
 // DOM functions
@@ -563,15 +565,22 @@ function toggleLeaderboard() {
   viewLeaderboardLink.innerText = `${verb} leaderboard`;
 }
 
-// Update the header with the locality info and the progress completed percentage
-function displayNearestLocalityInHeader(athlete) {
+// Update the leaderboard with the locality info and the progress completed percentage
+function displayNearestLocalityInLeaderboard(athlete) {
   const li = document.querySelector(`[athlete-id="${athlete.id}"]`);
 
   // Create an element for their progress
   const progress = document.createElement("span");
   progress.classList.add("progress");
-  progress.innerText = ` ${getPercentageOfRouteCompleted(getAthleteDistanceForYear(athlete))}%`;
+  progress.innerText = `${getPercentageOfRouteCompleted(getAthleteDistanceForYear(athlete))}%`;
   li.appendChild(progress);
+
+  // Create an element for their locality and distance info
+  const locality = document.createElement("span");
+  locality.classList.add("locality");
+  const distance = parseFloat((getAthleteDistanceForYear(athlete) / 1000).toFixed(2), 10);
+  locality.innerHTML = `${distance.toLocaleString()} km &#8226; ${getAthleteLocalityInfo(athlete, ", ")}`;
+  li.appendChild(locality);
 }
 
 // Extend the Google Maps API with some custom methods. Credit: http://jsfiddle.net/geocodezip/kzcm02d6/136/

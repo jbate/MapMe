@@ -98,7 +98,9 @@ header {
 
 .athlete-leaderboard .athlete-score {
   text-align: left;
-  direction: ltr;
+  display: grid;
+  grid-template-columns: 2rem 1fr auto;
+  grid-gap: 1rem;
   font-family: DayPosterBlack, 'Helvetica Neue', Helvetica, Arial, sans-serif;
   text-transform: uppercase;
   margin: 0 1rem;
@@ -117,11 +119,16 @@ header {
   font-weight: bold;
 }
 
+.athlete-leaderboard .locality {
+  font-family: 'Bree', 'Helvetica';
+  text-transform: initial;
+}
+
 .athlete-leaderboard .athlete-score:last-child {
   border-bottom: none;
 }
 
-.athlete-score:first-child::after {
+.athlete-score:first-child .athlete-name::after {
   content: "\01F3C6"; /* trophy */
 }
 
@@ -139,6 +146,7 @@ header {
 
 .progress {
   color: #e4002b;
+  text-align: right;
 }
 
 .nearest {
