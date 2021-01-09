@@ -61,7 +61,7 @@ header {
   overflow: auto;
   z-index: 1;
   position: absolute;
-  top: 15vh;
+  top: 130px;
   right: 0;
   left: 0;
   bottom: 0;
@@ -83,6 +83,9 @@ header {
 }
 
 .route-details {
+  display: flex;
+  height: 100%;
+  align-items: center;
   font-family: 'Bree', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   padding: 1rem;
   font-size: 2rem;
@@ -187,11 +190,11 @@ main {
 }
 
 .map-page header {
-  height: 15vh;
+  height: 130px;
 }
 
 .map-page main {
-  height: 85vh;
+  height: calc(100% - 130px);
 }
 
 [id="map-canvas"] {
