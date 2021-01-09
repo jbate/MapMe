@@ -86,7 +86,8 @@ app.use(session({
   saveUninitialized: false,
   secret: process.env.SESSION_SECRET,
   cookie: {
-    httpOnly: false
+    httpOnly: false,
+    secure: true
   }
 }));
 
