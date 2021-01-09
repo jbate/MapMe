@@ -85,7 +85,9 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   secret: process.env.SESSION_SECRET,
-  httpOnly: false
+  cookie: {
+    httpOnly: false
+  }
 }));
 
 app.use(allowCrossDomain);
@@ -216,7 +218,8 @@ async function getStatsFromStrava(user) {
     client_secret: process.env.STRAVA_CLIENT_SECRET,
     redirect_uri: process.env.STRAVA_CLIENT_CALLBACK,
   });
-  const newTokenDetails = await strava.oauth.refreshToken(user.refresh_token);
+  const newTokenDetails = await strava.oauth.refreshToken(user.refresh_token).catch(error => console.log("Error refreshing Strava access token", error));
+
   const result = await strava.athletes.stats({id: user.id, access_token: newTokenDetails.access_token}).catch(errors.StatusCodeError, (e) => {
     if (e === 401) {
       // TODO handle error
@@ -314,7 +317,7 @@ async function findUsersByMapCode(mapCode) {
   try {
     // Find all users, sort by ytd_run_totals asc
     const year = new Date().getFullYear();
-    return await User.find({maps: mapCode}, 'id username family_name given_name date_created last_updated profile_picture stats maps')
+    return await User.find({maps: mapCode}, 'id username family_name given_name date_created last_updated profile_picture stats maps refresh_token')
     .sort({[`stats.${year}.full.total`]: -1}).exec();
 
   } catch (err) {
