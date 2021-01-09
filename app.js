@@ -84,7 +84,8 @@ app.use(session({
   store: new MongoStore({mongooseConnection: mongoose.connection, ttl: 365 * 24 * 60 * 60}),
   resave: false,
   saveUninitialized: false,
-  secret: process.env.SESSION_SECRET
+  secret: process.env.SESSION_SECRET,
+  httpOnly: false
 }));
 
 app.use(allowCrossDomain);
