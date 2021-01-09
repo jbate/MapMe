@@ -154,9 +154,8 @@ app.get('/get-map/:mapCode', async(req, res) => {
 app.post('/get-map/:mapCode/add', async(req, res) => {
   let success = false;
   console.log('req.isAuthenticated()', req.isAuthenticated());
-  console.log('req.user', req.user);
-  if (req.isAuthenticated() && req.user) {
-    success = await addUserToMap(req.user.id, req.params.mapCode);
+  if (req.isAuthenticated() && req.session.passport.user) {
+    success = await addUserToMap(req.session.passport.user, req.params.mapCode);
   }
 
   if (success) {
@@ -170,10 +169,13 @@ app.get('/get-map/:mapCode/users', async(req, res) => {
   const mapCode = req.params.mapCode;
   const map = await findMap(mapCode);
   let users = [];
-  // If the map is a solo one then add the currently logged in user
+  // If the map is a solo one then try and add the currently logged in user
   if (map && map.solo) {
-    if (req.user) {
-      users.push(req.user);
+    if (req.session && req.session.passport && req.session.passport.user) {
+      const user = await findUser(req.session.passport.user)
+      if (user) {
+        users.push(user);
+      }
     }
   } else {
     // Else return all users assigned to that map
@@ -209,7 +211,12 @@ app.get('/get-maps', async(req, res) => {
   }
 });
 
-app.get('/get-logged-in-user', async(req, res) => res.json(req.user));
+app.get('/get-logged-in-user', async(req, res) => {
+  if (req.session && req.session.passport && req.session.passport.user) {
+    return res.json(await findUser(req.session.passport.user));
+  }
+  return res.sendStatus(401);
+});
 
 async function getStatsFromStrava(user) {
   // Query the Strava API for a fresh record
