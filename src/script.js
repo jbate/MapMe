@@ -237,7 +237,7 @@ function getLoggedInUser() {
       // Display login button
       const topBar = document.querySelector(".top-bar");
       if (topBar) {
-        const loginButton = document.createElement("a");
+        const loginButton = document.querySelector(".auth-button") || document.createElement("a");
         loginButton.classList.add("auth-button");
         loginButton.innerText = "Login using Strava";
         loginButton.setAttribute("href", apiURL + "/add-user");
@@ -527,7 +527,7 @@ function addLeaderboard() {
 
 function removeLeaderboard() {
   removeNode(".athlete-leaderboard");
-  removeNode(".leaderboard-title");
+  removeNode(".route-leaderboard-toggle");
 }
 
 function removeNode(selector) {
