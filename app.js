@@ -26,6 +26,8 @@ const StravaStrategy = require('passport-strava-oauth2').Strategy
 const express = require("express");
 const app = express();
 
+const isDevMode = process.env.NODE_ENV === 'development';
+
 const {MongoClient} = require("mongodb");
 const mongoose = require('mongoose');
 const {Schema} = mongoose;
@@ -80,6 +82,10 @@ mongoose.connect(process.env.DATABASE_URL, {
 const session = require('express-session');
 const MongoStore = require('connect-mongo')(session);
 
+if (!isDevMode) {
+  app.set("trust proxy", 1);
+}
+
 app.use(session({
   store: new MongoStore({mongooseConnection: mongoose.connection, ttl: 365 * 24 * 60 * 60}),
   resave: false,
@@ -87,7 +93,7 @@ app.use(session({
   secret: process.env.SESSION_SECRET,
   cookie: {
     httpOnly: false,
-    secure: true
+    secure: !isDevMode
   }
 }));
 
