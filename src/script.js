@@ -1,4 +1,4 @@
-const apiURL = location.hostname === "localhost" ? "http://localhost:3000" : "https://mapme.run";
+const apiURL = location.hostname === "localhost" ? "http://localhost:3000" : "https://www.mapme.run";
 
 const defaultConfig = function () {
   return {
