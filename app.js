@@ -91,6 +91,7 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   secret: process.env.SESSION_SECRET,
+  proxy: true,
   cookie: {
     httpOnly: true,
     sameSite: 'lax',
