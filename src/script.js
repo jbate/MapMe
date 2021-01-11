@@ -1,4 +1,4 @@
-const apiURL = location.hostname === "localhost" ? "http://localhost:3000" : "https://mapme-run.herokuapp.com";
+const apiURL = location.hostname === "localhost" ? "http://localhost:3000" : "https://mapme.run";
 
 const defaultConfig = function () {
   return {
