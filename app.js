@@ -91,11 +91,10 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   secret: process.env.SESSION_SECRET,
-  proxy: true,
   cookie: {
-    httpOnly: true,
+    httpOnly: false,
     sameSite: 'lax',
-    secure: false
+    secure: !isDevMode
   }
 }));
 
