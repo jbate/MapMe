@@ -92,7 +92,7 @@ app.use(session({
   saveUninitialized: false,
   secret: process.env.SESSION_SECRET,
   cookie: {
-    httpOnly: false,
+    httpOnly: true,
     sameSite: 'lax',
     secure: !isDevMode
   }
