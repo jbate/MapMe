@@ -140,6 +140,9 @@ const strategy = new StravaStrategy(stravaConfig, async (accessToken, refreshTok
 });
 
 passport.use(strategy);
+
+app.use(express.static(path.join(__dirname, 'src')));
+
 app.get('/add-user', passport.authenticate('strava', {scope:['read']}));
 app.get('/callback', passport.authenticate('strava', {
     successRedirect: '/',
@@ -147,7 +150,7 @@ app.get('/callback', passport.authenticate('strava', {
   })
 );
 
-app.get('/', (req, res) => res.redirect(process.env.AUTH_SUCCESS_REDIRECT));
+app.get('/', (req, res) => res.sendFile("index.html"));
 
 app.get('/get-map/:mapCode', async(req, res) => {
   const map = await findMap(req.params.mapCode);
@@ -252,8 +255,6 @@ async function getStatsFromStrava(user) {
 }
 
 app.get('/error', (req, res) => res.send('LOGIN ERROR'));
-
-app.use('/src', express.static(path.join(__dirname, 'src')))
 
 app.use(express.json()); // to parse application/json
 
