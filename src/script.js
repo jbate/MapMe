@@ -78,6 +78,9 @@ window.addEventListener("hashchange", tryLoadMap, false);
 // Try and look up a map based on the map code
 tryLoadMap();
 
+// Attempt to get the logged in user
+getLoggedInUser();
+
 function tryLoadMap() {
   let mapCode = lookupMapCode();
 
@@ -226,27 +229,29 @@ function getLoggedInUser() {
   fetch(apiURL + '/get-logged-in-user', {credentials: 'include'}).then(res => {
     res.json().then(user => {
       // Display add to map button
-      mapLoadedPromise.then(() => {
-        const topBar = document.querySelector(".top-bar");
+      if (mapLoadedPromise) {
+        mapLoadedPromise.then(() => {
+          const topBar = document.querySelector(".top-bar");
 
-        // Show an 'Add myself to map' button if the top bar exists and the map isn't a "solo" one
-        if (topBar && !config.mapDetails.solo) {
-          const addRemoveButton = document.querySelector(".add-remove-to-map-button") || document.createElement("button");
-          // And if the user isn't already added to the map, else show a leave map button
-          addRemoveButton.classList.add("add-remove-to-map-button");
-          if (user.maps.indexOf(config.mapCode) === -1) {
-            addRemoveButton.innerText = "+ Add myself to map";
-            addRemoveButton.addEventListener("click", addRemoveUserToMap.bind(this, "add"));
+          // Show an 'Add myself to map' button if the top bar exists and the map isn't a "solo" one
+          if (topBar && !config.mapDetails.solo) {
+            const addRemoveButton = document.querySelector(".add-remove-to-map-button") || document.createElement("button");
+            // And if the user isn't already added to the map, else show a leave map button
+            addRemoveButton.classList.add("add-remove-to-map-button");
+            if (user.maps.indexOf(config.mapCode) === -1) {
+              addRemoveButton.innerText = "+ Add myself to map";
+              addRemoveButton.addEventListener("click", addRemoveUserToMap.bind(this, "add"));
+            } else {
+              addRemoveButton.innerText = "Leave map";
+              addRemoveButton.addEventListener("click", addRemoveUserToMap.bind(this, "remove"));
+            }
+
+            topBar.appendChild(addRemoveButton);
           } else {
-            addRemoveButton.innerText = "Leave map";
-            addRemoveButton.addEventListener("click", addRemoveUserToMap.bind(this, "remove"));
+            removeNode(".add-remove-to-map-button")
           }
-
-          topBar.appendChild(addRemoveButton);
-        } else {
-          removeNode(".add-remove-to-map-button")
-        }
-      });
+        });
+      }
     }).catch(() => {
       // Display login button
       const topBar = document.querySelector(".top-bar");
