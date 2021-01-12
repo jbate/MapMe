@@ -64,7 +64,8 @@ const mapSchema = new Schema({
   created_date: {type: Date, default: Date.now},
   created_by: String,
   waypoints: Schema.Types.Mixed,
-  passcode: String
+  passcode: String,
+  travel_mode: String
 });
 
 const Map = mongoose.model('Map', mapSchema);
@@ -163,9 +164,23 @@ app.get('/get-map/:mapCode', async(req, res) => {
 
 app.post('/get-map/:mapCode/add', async(req, res) => {
   let success = false;
-  console.log('req.isAuthenticated()', req.isAuthenticated());
+
   if (req.isAuthenticated() && req.session.passport.user) {
     success = await addUserToMap(req.session.passport.user, req.params.mapCode);
+  }
+
+  if (success) {
+    res.sendStatus(200);
+  } else {
+    res.sendStatus(401);
+  }
+});
+
+app.post('/get-map/:mapCode/remove', async(req, res) => {
+  let success = false;
+
+  if (req.isAuthenticated() && req.session.passport.user) {
+    success = await removeUserFromMap(req.session.passport.user, req.params.mapCode);
   }
 
   if (success) {
@@ -315,6 +330,19 @@ async function addUserToMap(userId, mapCode) {
   }
 }
 
+async function removeUserFromMap(userId, mapCode) {
+  try {
+    const filter = {id: userId};
+    const update = {
+      $pull: {maps: mapCode}
+    };
+
+    return dbConn.then(client => client.db(dbName).collection("users").updateOne(filter, update));
+  } catch (err) {
+    console.log("Remove user from map error", err.stack);
+  }
+}
+
 async function findUser(userId) {
   try {
     return await dbConn.then(async client => {
@@ -343,7 +371,7 @@ async function findUsersByMapCode(mapCode) {
 
 async function findMap(mapCode) {
   try {
-    return await Map.findOne({code: mapCode}, 'name year solo start_city start_country end_city end_country waypoints').exec();
+    return await Map.findOne({code: mapCode}, 'name year solo start_city start_country end_city end_country waypoints travel_mode').exec();
 
   } catch (err) {
     console.log("Find map error", err.stack);

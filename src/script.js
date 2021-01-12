@@ -101,7 +101,7 @@ function tryLoadMap() {
         const mapStart = `${map.start_city}, ${map.start_country}`;
         const mapEnd = `${map.end_city}, ${map.end_country}`;
         const mapCentre = `${map.map_centre}`;
-        const src = "https://maps.googleapis.com/maps/api/staticmap?key=" + mapKey + "&zoom=4&size=980x450&maptype=roadmap";
+        const src = "https://maps.googleapis.com/maps/api/staticmap?key=" + mapKey + "&zoom=5&size=980x450&maptype=roadmap";
         const centre = "&center=" + mapCentre;
         const startMarker = "&markers=color:green%7Clabel:S%7C" + mapStart;
         const endMarker ="&markers=color:red%7Clabel:F%7C" + mapEnd;
@@ -220,17 +220,27 @@ function resetConfig() {
 
 function getLoggedInUser() {
   fetch(apiURL + '/get-logged-in-user', {credentials: 'include'}).then(res => {
-    res.json().then(() => {
+    res.json().then(user => {
       // Display add to map button
       mapLoadedPromise.then(() => {
         const topBar = document.querySelector(".top-bar");
-        if (topBar) {
-          const addButton = document.querySelector(".add-to-map-button") || document.createElement("button");
-          addButton.classList.add("add-to-map-button");
-          addButton.innerText = "+ Add myself to map";
-          addButton.addEventListener("click", addUserToMap);
 
-          topBar.appendChild(addButton);
+        // Show an 'Add myself to map' button if the top bar exists and the map isn't a "solo" one
+        if (topBar && !config.mapDetails.solo) {
+          const addRemoveButton = document.querySelector(".add-remove-to-map-button") || document.createElement("button");
+          // And if the user isn't already added to the map, else show a leave map button
+          addRemoveButton.classList.add("add-remove-to-map-button");
+          if (user.maps.indexOf(config.mapCode) === -1) {
+            addRemoveButton.innerText = "+ Add myself to map";
+            addRemoveButton.addEventListener("click", addRemoveUserToMap.bind(this, "add"));
+          } else {
+            addRemoveButton.innerText = "Leave map";
+            addRemoveButton.addEventListener("click", addRemoveUserToMap.bind(this, "remove"));
+          }
+
+          topBar.appendChild(addRemoveButton);
+        } else {
+          removeNode(".add-remove-to-map-button")
         }
       });
     }).catch(() => {
@@ -248,8 +258,8 @@ function getLoggedInUser() {
   });
 }
 
-function addUserToMap() {
-  fetch(apiURL + '/get-map/' + config.mapCode + '/add', {
+function addRemoveUserToMap(verb) {
+  fetch(apiURL + '/get-map/' + config.mapCode + '/' + verb, {
     method: 'post',
     credentials: 'include'
   }).then(res => {
@@ -321,7 +331,7 @@ function getDirectionsForRoute() {
     const request = {
       origin: config.startAddress,
       destination: config.endAddress,
-      travelMode: google.maps.DirectionsTravelMode.WALKING
+      travelMode: google.maps.DirectionsTravelMode[config.mapDetails.travel_mode ? config.mapDetails.travel_mode : 'WALKING']
     };
 
     const directionsService = new google.maps.DirectionsService();
@@ -402,7 +412,7 @@ function updateAthleteLocations() {
         // Update the map and marker for the leader
         if (index === 0) {
           config.map.panTo(positionOnRoute);
-          config.map.setZoom(8);
+          config.map.setZoom(10);
           addLeaderboard();
         }
 
@@ -538,7 +548,7 @@ function removeNode(selector) {
 }
 
 function addLeaderboardTitle() {
-  const viewLeaderboardLink = document.createElement("a");
+  const viewLeaderboardLink = document.querySelector("route-leaderboard-toggle") || document.createElement("a");
   viewLeaderboardLink.innerText = "Show leaderboard";
   viewLeaderboardLink.classList.add("route-leaderboard-toggle");
   viewLeaderboardLink.addEventListener("click", toggleLeaderboard);

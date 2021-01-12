@@ -180,7 +180,7 @@ header {
   transform: translate(1px, 1px);
 }
 
-.add-to-map-button {
+.add-remove-to-map-button {
   margin-left: auto;
   font-size: inherit;
 }
