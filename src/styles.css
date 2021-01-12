@@ -191,11 +191,11 @@ main {
 }
 
 .map-page header {
-  height: 130px;
+  height: 150px;
 }
 
 .map-page main {
-  height: calc(100% - 130px);
+  height: calc(100% - 150px);
 }
 
 [id="map-canvas"] {
