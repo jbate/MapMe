@@ -413,14 +413,27 @@ function updateAthleteLocations() {
         if (index === 0) {
           config.map.panTo(positionOnRoute);
           config.map.setZoom(10);
-          addLeaderboard();
+
+          if (!config.mapDetails.solo) {
+            addLeaderboard();
+          }
         }
 
-        addToLeaderboard(athlete);
+        if (config.mapDetails.solo) {
+          addSoloProgress(athlete);
+        } else {
+          addToLeaderboard(athlete);
+        }
 
         // Reverse geocode to try and get a place name
         // Update leaderboard with nearest locations
-        getNearestLocality(athlete, positionOnRoute).then(() => displayNearestLocalityInLeaderboard(athlete));
+        getNearestLocality(athlete, positionOnRoute).then(() => {
+          if (!config.mapDetails.solo) {
+            displayNearestLocalityInLeaderboard(athlete);
+          } else {
+            displayNearestLocalityInSoloProgress(athlete);
+          }
+        });
 
         updateAthleteDistanceLine(athlete);
       }
@@ -518,7 +531,7 @@ function updateRouteDetailsDistance(distance) {
   distanceEl.classList.add("route-distance");
   document.querySelector(".route-details").appendChild(distanceEl);
 
-  distanceEl.innerHTML = ` &#8226; ${parseFloat((distance / 1000).toFixed(2), 10)} km &#8226; `;
+  distanceEl.innerHTML = ` &#8226; ${parseFloat((distance / 1000).toFixed(2), 10).toLocaleString()} km &#8226; `;
 }
 
 function addRouteDetails() {
@@ -566,6 +579,23 @@ function addToLeaderboard(athlete) {
   nameBadge.classList.add("athlete-name");
   nameBadge.innerText = athlete.username;
   li.appendChild(nameBadge);
+}
+
+function addSoloProgress(athlete) {
+  const soloProgressEl = document.querySelector(".route-details .solo-progress") || document.createElement("span");
+  soloProgressEl.classList.add("solo-progress");
+  document.querySelector(".route-details").appendChild(soloProgressEl);
+
+  const distance = parseFloat((getAthleteDistanceForYear(athlete) / 1000).toFixed(2), 10).toLocaleString();
+  const percentageComplete = getPercentageOfRouteCompleted(getAthleteDistanceForYear(athlete));
+
+  soloProgressEl.innerHTML = ` ${athlete.username} &#8226; <span class="progress">${distance} km (${percentageComplete}%)</span>`;
+}
+
+function displayNearestLocalityInSoloProgress(athlete) {
+  const soloProgressEl = document.querySelector(".route-details .solo-progress");
+  const localityInfo = getAthleteLocalityInfo(athlete, ", ");
+  soloProgressEl.innerHTML += ` &#8226; ${localityInfo}`;
 }
 
 function toggleLeaderboard() {
