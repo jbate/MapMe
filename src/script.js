@@ -125,6 +125,10 @@ function tryLoadMap() {
         // link.innerHTML += `<span class="athlete-count">0</span>`;
         link.appendChild(img);
 
+        if (map.solo) {
+          li.classList.add("solo-map");
+        }
+
         li.appendChild(link);
         list.appendChild(li);
       });

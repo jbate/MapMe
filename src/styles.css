@@ -220,6 +220,10 @@ main {
   border: 1px solid #000;
 }
 
+.maps-list-grid li.solo-map {
+  background-color: #26478d;
+}
+
 .maps-list-grid a {
   text-decoration: none;
   color: white;
@@ -308,7 +312,6 @@ img[src*='pictures/athletes'], img[src*='/picture?'] {
   }
 
   .maps-list-grid {
-    display: block;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
   }
 }
