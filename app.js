@@ -33,7 +33,7 @@ const mongoose = require('mongoose');
 const {Schema} = mongoose;
 
 const userSchema = new Schema({
-  id: String,
+  id: Number,
   username: String,
   family_name: String,
   given_name: String,
@@ -311,7 +311,7 @@ async function updateUserTotal(userId, distance) {
     update.$set[`stats.${year}.full`] = stats;
     update.$set[`stats.${year}.${month}`] = stats;
 
-    dbConn.then(client => client.db(dbName).collection("users").updateOne(filter, update));
+    User.findOneAndUpdate(filter, update, { "new": true}).exec();
   } catch (err) {
     console.log("Update user error", err.stack);
   }

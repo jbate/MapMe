@@ -234,7 +234,7 @@ function getLoggedInUser() {
           const topBar = document.querySelector(".top-bar");
 
           // Show an 'Add myself to map' button if the top bar exists and the map isn't a "solo" one
-          if (topBar && !config.mapDetails.solo) {
+          if (topBar && (config && config.mapDetails && !config.mapDetails.solo)) {
             const addRemoveButton = document.querySelector(".add-remove-to-map-button") || document.createElement("button");
             // And if the user isn't already added to the map, else show a leave map button
             addRemoveButton.classList.add("add-remove-to-map-button");
