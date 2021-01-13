@@ -65,7 +65,8 @@ const mapSchema = new Schema({
   created_by: String,
   waypoints: Schema.Types.Mixed,
   passcode: String,
-  travel_mode: String
+  travel_mode: String,
+  geocode_lookup: [String]
 });
 
 const Map = mongoose.model('Map', mapSchema);
@@ -371,7 +372,7 @@ async function findUsersByMapCode(mapCode) {
 
 async function findMap(mapCode) {
   try {
-    return await Map.findOne({code: mapCode}, 'name year solo start_city start_country end_city end_country waypoints travel_mode').exec();
+    return await Map.findOne({code: mapCode}, 'name year solo start_city start_country end_city end_country waypoints travel_mode geocode_lookup').exec();
 
   } catch (err) {
     console.log("Find map error", err.stack);

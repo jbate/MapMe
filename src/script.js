@@ -436,13 +436,15 @@ function updateAthleteLocations() {
 
         // Reverse geocode to try and get a place name
         // Update leaderboard with nearest locations
-        getNearestLocality(athlete, positionOnRoute).then(() => {
-          if (!config.mapDetails.solo) {
-            displayNearestLocalityInLeaderboard(athlete);
-          } else {
-            displayNearestLocalityInSoloProgress(athlete);
-          }
-        });
+        if (config.mapDetails.geocode_lookup) {
+          getNearestLocality(athlete, positionOnRoute).then(() => {
+            if (!config.mapDetails.solo) {
+              displayNearestLocalityInLeaderboard(athlete);
+            } else {
+              displayNearestLocalityInSoloProgress(athlete);
+            }
+          });
+        }
 
         updateAthleteDistanceLine(athlete);
       }
@@ -478,21 +480,21 @@ function reverseGeoCodeLookups(athlete, geocodeResults) {
   let nearestLocality = "";
   let nearestCountry = "";
 
-  if (geocodeResults) {
+  if (geocodeResults && config.mapDetails.geocode_lookup) {
     // Try and get the locality information
     let localityMatches = getReverseGeocodeResultForType(geocodeResults, 'locality');
     if (!localityMatches.length) {
       localityMatches = getReverseGeocodeResultForType(geocodeResults, 'postal_town');
     }
 
-    if (localityMatches.length) {
+    if (config.mapDetails.geocode_lookup.indexOf("locality") > -1 && localityMatches.length) {
       nearestLocality = localityMatches[0].short_name;
     }
 
     // Also try and get the country name
     const countryMatches = getReverseGeocodeResultForType(geocodeResults, 'country');
 
-    if (countryMatches.length) {
+    if (config.mapDetails.geocode_lookup.indexOf("country") > -1 && countryMatches.length) {
       nearestCountry = countryMatches[0].long_name;
     }
   }
