@@ -153,12 +153,8 @@ header {
   text-align: right;
 }
 
-.nearest, .solo-progress {
+.nearest, .solo-progress, .athlete-name {
   color: green;
-}
-
-.athlete-name {
-  color: #333;
 }
 
 .auth-button {

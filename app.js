@@ -262,8 +262,8 @@ async function getStatsFromStrava(user) {
 
   if (result) {
     // Update the database with this latest result
-    updateUserTotal(user.id, result.ytd_run_totals.distance);
-    return {...user, ...result, ytd_run_totals: result.ytd_run_totals.distance};
+    updateUserTotal(user.id, result.ytd_run_totals.distance, result.ytd_run_totals.count);
+    return {...user, ...result, ytd_run_totals: result.ytd_run_totals.distance, ytd_run_count: result.ytd_run_totals.count};
   } else {
     console.log('Error could not retrieve user', user);
     return null;
@@ -292,7 +292,7 @@ async function addUser(user) {
   }
 }
 
-async function updateUserTotal(userId, distance) {
+async function updateUserTotal(userId, distance, count) {
   try {
     const filter = {id: userId};
     const update = {
@@ -303,7 +303,8 @@ async function updateUserTotal(userId, distance) {
 
     const stats = {
       "type": "run",
-      "total": distance
+      "total": distance,
+      "count": count
     };
 
     // Update the user stats for the current year and month

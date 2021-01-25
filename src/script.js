@@ -304,6 +304,7 @@ function displayMarkerPopup(athlete) {
   const routeDistance = parseFloat((config.route.distance / 1000).toFixed(2), 10);
   const distanceRemaining = routeDistance - athleteDistance;
   const percentageCompleted = getPercentageOfRouteCompleted(getAthleteDistanceForYear(athlete));
+  const runCount = getAthleteRunCountForYear(athlete);
 
   let content = `<div class='marker-popup'>
                   <b>${athlete.username}</b><br>
@@ -313,7 +314,8 @@ function displayMarkerPopup(athlete) {
     content += `${distanceRemaining.toLocaleString()} km remaining<br>`;
   }
 
-  content += `<b class="progress">${percentageCompleted}%</b><br>
+  content += `${runCount} runs<br>
+              <b class="progress">${percentageCompleted}%</b><br>
               <b class="nearest">${getAthleteLocalityInfo(athlete)}</b>
             </div>`;
 
@@ -454,11 +456,18 @@ function updateAthleteLocations() {
 
 function getAthleteDistanceForYear(athlete) {
   const year = config.mapDetails.year;
-  const distance = 0;
   if (athlete.stats[year] && athlete.stats[year].full.type === "run") {
     return athlete.stats[year].full.total;
   }
-  return distance;
+  return 0;
+}
+
+function getAthleteRunCountForYear(athlete) {
+  const year = config.mapDetails.year;
+  if (athlete.stats[year] && athlete.stats[year].full.type === "run") {
+    return athlete.stats[year].full.count;
+  }
+  return 0;
 }
 
 // Update the athlete's line on the map.
@@ -598,9 +607,10 @@ function addSoloProgress(athlete) {
   document.querySelector(".route-details").appendChild(soloProgressEl);
 
   const distance = parseFloat((getAthleteDistanceForYear(athlete) / 1000).toFixed(2), 10).toLocaleString();
+  const runCount = getAthleteRunCountForYear(athlete);
   const percentageComplete = getPercentageOfRouteCompleted(getAthleteDistanceForYear(athlete));
 
-  soloProgressEl.innerHTML = ` ${athlete.username} &#8226; <span class="progress">${distance} km (${percentageComplete}%)</span>`;
+  soloProgressEl.innerHTML = ` ${athlete.username} &#8226; <span class="progress">${distance} km (${percentageComplete}%, ${runCount} runs)</span>`;
 }
 
 function displayNearestLocalityInSoloProgress(athlete) {
@@ -630,7 +640,8 @@ function displayNearestLocalityInLeaderboard(athlete) {
   const locality = document.createElement("span");
   locality.classList.add("locality");
   const distance = parseFloat((getAthleteDistanceForYear(athlete) / 1000).toFixed(2), 10);
-  locality.innerHTML = `${distance.toLocaleString()} km &#8226; ${getAthleteLocalityInfo(athlete, ", ")}`;
+  const runCount = getAthleteRunCountForYear(athlete);
+  locality.innerHTML = `${distance.toLocaleString()} km &#8226; ${runCount} runs &#8226; ${getAthleteLocalityInfo(athlete, ", ")}`;
   li.appendChild(locality);
 }
 
